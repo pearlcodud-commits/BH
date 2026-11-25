@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>기후 탐정단 조사 미션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+/*
+VOICE: 신나는 탐정 게임, 초등 4학년 눈높이, 짧은 문장과 즉각 피드백
+IDEA: 탐정 수첩 + 동네 지도 — 장소를 눌러 단서(자료 카드)를 모으는 조사 미션
+PICTURE: 버스길·그늘막 횡단보도·태양광 빌딩·탐정 본부가 있는 동네 그림 지도
+COLOUR and TYPE: 하늘 코발트 주색, 햇볕 노랑 보조, 산호 빨강 강조 / Jua 제목 + Gowun Dodum 본문
+LAYOUT: 상단 점수판 → 지도(첫 화면) → 장소별 카드 격자 → 조사 노트 서랍
+*/
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#0f1a33);--ink:light-dark(#14213d,#eef2ff);--soft:light-dark(#eef3ff,#18264a);
+--line:light-dark(#d5def5,#2a3b66);--blue:#2456d6;--sun:#ffc83d;--coral:#ff5a4e;--ok:#1a9a5b;--muted:light-dark(#55607a,#b6c0dc);
+--a:#ff5a4e;--b:#ff9f1c;--c:#2456d6;--d:#7a4cd9}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 "Gowun Dodum",system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3,.jua,button{font-family:"Jua","Gowun Dodum",sans-serif;font-weight:400}
+.band{padding:clamp(18px,3vw,40px) max(4vw,14px)}
+.wrap{max-width:1240px;margin:0 auto}
+header{background:var(--blue);color:#fff}
+header .wrap{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:clamp(26px,4vw,40px);line-height:1.05}
+header p{margin:2px 0 0;opacity:.9;font-size:15px}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.pill{background:rgba(255,255,255,.16);border-radius:999px;padding:8px 14px;font-family:Jua;font-size:18px;white-space:nowrap}
+.pill b{color:var(--sun);font-weight:400}
+button{cursor:pointer;border:0;border-radius:14px;min-height:44px;padding:8px 16px;font-size:18px}
+button:focus-visible,.spot:focus-visible{outline:4px solid var(--sun);outline-offset:3px}
+.btn{background:var(--sun);color:#14213d;box-shadow:0 4px 0 #c99400}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c99400}
+.ghost{background:var(--soft);color:var(--ink)}
+.view{display:none}.view.on{display:block}
+/* map */
+.mapbox{background:var(--soft);border-radius:24px;padding:10px;position:relative}
+.mapbox svg{display:block;width:100%;height:auto;border-radius:18px}
+.spot{cursor:pointer;transition:transform .2s}
+.spot:hover{transform:translateY(-6px)}
+@media (prefers-reduced-motion:reduce){.spot,.card{transition:none!important}.spot:hover{transform:none}}
+.mission{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.mbtn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;color:#fff;padding:14px 16px;border-radius:18px;font-size:20px;line-height:1.2}
+.mbtn small{font-family:"Gowun Dodum";font-size:14px;opacity:.95;margin-top:4px}
+.bar{height:10px;width:100%;background:rgba(255,255,255,.3);border-radius:9px;margin-top:10px;overflow:hidden}
+.bar i{display:block;height:100%;background:#fff;border-radius:9px;transition:width .4s}
+@media(max-width:800px){.mission{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.intro{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;margin-top:18px}
+.box{border:2px solid var(--line);border-radius:18px;padding:16px 18px}
+.box h3{margin:0 0 6px;font-size:22px}
+.box ol,.box ul{margin:0;padding-left:1.2em}
+@media(max-width:700px){.intro{grid-template-columns:minmax(0,1fr)}}
+/* zone */
+.zhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.zhead h2{margin:0;font-size:clamp(26px,4vw,38px);line-height:1.1}
+.zhead p{margin:4px 0 0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.card{position:relative;text-align:left;background:var(--bg);color:var(--ink);border:3px solid var(--line);border-radius:20px;padding:16px;min-height:170px;display:flex;flex-direction:column;gap:8px;transition:transform .15s}
+.card:hover{transform:rotate(-1deg) scale(1.02)}
+.card .q{font-size:44px;line-height:1;color:var(--zc)}
+.card h3{margin:0;font-size:21px;line-height:1.2}
+.card.got{border-color:var(--zc);background:color-mix(in srgb,var(--zc) 10%,var(--bg))}
+.card .stamp{position:absolute;top:10px;right:12px;font-family:Jua;color:var(--zc);font-size:16px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft);width:max-content}
+.tag svg{width:15px;height:15px}
+.read{background:color-mix(in srgb,var(--zc) 8%,var(--bg));border:3px solid var(--zc);border-radius:20px;padding:6px 20px 10px;margin-bottom:18px}
+.read summary{font-family:Jua;font-size:22px;cursor:pointer;padding:8px 0;color:var(--zc)}
+.read p{margin:0 0 10px;font-size:17.5px;line-height:1.8}
+.more{margin-top:14px}.more h3{font-size:21px;margin:16px 0 4px;color:var(--zc)}.more p{margin:0;line-height:1.8}
+.more ul{margin:4px 0 0;padding-left:1.2em;line-height:1.8}.wd b{font-family:Jua;font-weight:400}
+.think{margin-top:14px;background:#fff4d1;color:#4a3700;border-radius:14px;padding:12px 14px;line-height:1.7}.think b{font-family:Jua;font-weight:400;margin-right:6px}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(10,18,40,.6);display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;z-index:20;overflow-y:auto}
+.modal.on{display:flex}
+.sheet{background:var(--bg);color:var(--ink);border-radius:24px;max-width:760px;width:100%;padding:clamp(18px,3vw,30px);border-top:12px solid var(--zc,var(--blue));animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.sheet h2{margin:6px 0 4px;font-size:clamp(24px,3.6vw,32px);line-height:1.15}
+.big{font-family:Jua;font-size:clamp(38px,7vw,60px);line-height:1.05;color:var(--zc);margin:8px 0}
+.src{background:var(--soft);border-radius:14px;padding:12px 14px;font-size:15px;margin-top:12px}
+.src b{font-family:Jua;font-weight:400;font-size:17px}
+.src dl{display:grid;grid-template-columns:4.5em minmax(0,1fr);gap:2px 8px;margin:6px 0 0}
+.src dt{color:var(--muted)}.src dd{margin:0;overflow-wrap:anywhere}
+.src a{color:var(--blue)}
+.warn{font-size:15px;background:#fff4d1;color:#5b4300;border-radius:12px;padding:8px 12px;margin-top:10px}
+.quiz{margin-top:16px;border:3px dashed var(--zc);border-radius:18px;padding:14px}
+.quiz h3{margin:0 0 10px;font-size:21px}
+.opts{display:grid;gap:10px}
+.opt{background:var(--soft);color:var(--ink);text-align:left;font-family:"Gowun Dodum";font-size:17px;font-weight:700;border:3px solid transparent}
+.opt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,var(--bg))}
+.opt.wrong{border-color:var(--coral);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.fb{font-family:Jua;font-size:20px;margin-top:10px;min-height:1.4em}
+.row{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:16px}
+/* note */
+.note-list{display:grid;gap:10px}
+.ni{border-left:6px solid var(--zc);background:var(--soft);border-radius:12px;padding:10px 14px}
+.ni b{font-family:Jua;font-weight:400;font-size:19px}
+.ni p{margin:2px 0}.ni small{color:var(--muted)}
+.ni label{display:inline-flex;gap:6px;align-items:center;font-size:15px;margin-top:4px;cursor:pointer}
+.ni input{width:20px;height:20px}
+.speech{background:#fffbe9;color:#3a2e00;border:3px solid var(--sun);border-radius:16px;padding:14px;font-size:18px;line-height:1.7}
+/* how-to */
+.sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.site{background:var(--soft);border-radius:16px;padding:14px}
+.site b{font-family:Jua;font-weight:400;font-size:20px;display:block}
+.site code{font-size:14px;color:var(--blue)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ok);color:#fff;font-family:Jua;font-size:22px;padding:12px 22px;border-radius:999px;z-index:40;display:none}
+.toast.on{display:block;animation:pop .25s}
+footer{color:var(--muted);font-size:14px}
+input[type=text]{font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink);min-height:44px}
+</style>
+</head>
+<body>
+<header class="band"><div class="wrap">
+  <div><h1>기후 탐정단 · 조사 미션</h1><p>동네 곳곳의 단서 카드를 열고, 퀴즈를 풀어 진짜 자료와 출처를 모아요!</p></div>
+  <div class="stats">
+    <span class="pill">탐정 <b id="who">새내기</b></span>
+    <span class="pill">별 <b id="stars">0</b></span>
+    <span class="pill">단서 <b id="cnt">0</b> / <span id="tot">0</span></span>
+    <span class="pill">등급 <b id="rank">견습 탐정</b></span>
+    <button class="btn" id="openNote">조사 노트</button>
+  </div>
+</div></header>
+
+<main>
+<section class="view on band" id="hub"><div class="wrap">
+  <div class="mapbox">
+  <svg viewBox="0 0 1000 500" role="img" aria-label="기후 탐정 동네 지도">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#d9efff"/></linearGradient>
+      <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d8df0"/><stop offset="1" stop-color="#1c3f9e"/></linearGradient>
+    </defs>
+    <rect width="1000" height="500" fill="url(#sky)"/>
+    <circle cx="880" cy="70" r="44" fill="#ffd54a"/><circle cx="880" cy="70" r="60" fill="#ffd54a" opacity=".25"/>
+    <path d="M0 300 Q160 250 330 290 T660 280 T1000 290 V500 H0Z" fill="#9fd88a"/>
+    <path d="M0 340 Q250 320 500 345 T1000 335 V500 H0Z" fill="#7cc46a"/>
+    <rect x="0" y="380" width="1000" height="70" fill="#5b6478"/>
+    <g fill="#fff">
+      <rect x="20" y="412" width="50" height="6"/><rect x="120" y="412" width="50" height="6"/><rect x="220" y="412" width="50" height="6"/><rect x="620" y="412" width="50" height="6"/><rect x="720" y="412" width="50" height="6"/><rect x="820" y="412" width="50" height="6"/><rect x="920" y="412" width="50" height="6"/>
+    </g>
+    <!-- A 탄소 줄이기: 버스와 자전거 -->
+    <g class="spot" data-z="a" tabindex="0" role="button" aria-label="탄소 줄이기 길로 가기">
+      <rect x="40" y="318" width="210" height="80" rx="16" fill="#ff5a4e"/>
+      <rect x="40" y="378" width="210" height="14" fill="#c9372d"/>
+      <g fill="#dff1ff"><rect x="58" y="332" width="40" height="30" rx="5"/><rect x="106" y="332" width="40" height="30" rx="5"/><rect x="154" y="332" width="40" height="30" rx="5"/><rect x="202" y="332" width="34" height="44" rx="5"/></g>
+      <circle cx="85" cy="396" r="16" fill="#222"/><circle cx="85" cy="396" r="6" fill="#bbb"/>
+      <circle cx="205" cy="396" r="16" fill="#222"/><circle cx="205" cy="396" r="6" fill="#bbb"/>
+      <g stroke="#14213d" stroke-width="5" fill="none"><circle cx="290" cy="420" r="18"/><circle cx="350" cy="420" r="18"/><path d="M290 420 L312 392 L350 420 M312 392 H338 L350 420 M312 392 L306 380"/></g>
+      <rect x="60" y="250" width="200" height="46" rx="12" fill="#fff"/>
+      <text x="160" y="282" text-anchor="middle" font-family="Jua" font-size="26" fill="#ff5a4e">① 탄소 줄이기 길</text>
+    </g>
+    <!-- B 폭염·한파: 그늘막 -->
+    <g class="spot" data-z="b" tabindex="0" role="button" aria-label="폭염 한파 대처 광장으로 가기">
+      <g fill="#fff"><rect x="420" y="384" width="16" height="62"/><rect x="448" y="384" width="16" height="62"/><rect x="476" y="384" width="16" height="62"/><rect x="504" y="384" width="16" height="62"/><rect x="532" y="384" width="16" height="62"/></g>
+      <rect x="480" y="230" width="10" height="150" fill="#3b3f4a"/>
+      <path d="M390 250 Q485 170 580 250 Z" fill="#ff9f1c"/>
+      <path d="M390 250 Q485 222 580 250" fill="#e07f00"/>
+      <circle cx="455" cy="330" r="12" fill="#ffd2b0"/><rect x="445" y="342" width="20" height="38" rx="8" fill="#2456d6"/>
+      <circle cx="515" cy="335" r="10" fill="#ffd2b0"/><rect x="507" y="345" width="16" height="35" rx="7" fill="#ff5a4e"/>
+      <g fill="#bfe6ff" opacity=".9"><circle cx="600" cy="300" r="5"/><circle cx="615" cy="315" r="4"/><circle cx="598" cy="325" r="4"/><circle cx="620" cy="290" r="3"/></g>
+      <rect x="380" y="140" width="210" height="46" rx="12" fill="#fff"/>
+      <text x="485" y="172" text-anchor="middle" font-family="Jua" font-size="26" fill="#e07f00">② 폭염·한파 광장</text>
+    </g>
+    <!-- C 기업과 국가: 빌딩·태양광·풍력 -->
+    <g class="spot" data-z="c" tabindex="0" role="button" aria-label="기업과 국가 타워로 가기">
+      <rect x="700" y="120" width="120" height="260" fill="url(#glass)"/>
+      <g stroke="#9fc0ff" stroke-width="2"><path d="M700 160H820M700 200H820M700 240H820M700 280H820M700 320H820M740 120V380M780 120V380"/></g>
+      <path d="M690 120 L760 96 L830 120Z" fill="#14213d"/>
+      <g transform="translate(840 250)"><rect width="120" height="60" fill="#1c3f9e" transform="skewX(-20)"/><g stroke="#9fc0ff" stroke-width="2"><path d="M-6 20H114M-14 40H106" /><path d="M30 0 L8 60 M70 0 L48 60"/></g></g>
+      <rect x="925" y="140" width="6" height="170" fill="#e8eef8"/>
+      <g transform="translate(928 140)" fill="#fff"><path d="M0 0 L-8 -60 L4 -60Z"/><path d="M0 0 L52 30 L46 40Z"/><path d="M0 0 L-50 34 L-54 24Z"/><circle r="7" fill="#c8d4ea"/></g>
+      <rect x="680" y="44" width="200" height="46" rx="12" fill="#fff"/>
+      <text x="780" y="76" text-anchor="middle" font-family="Jua" font-size="26" fill="#2456d6">③ 기업·국가 타워</text>
+    </g>
+    <!-- D 탐정 본부 -->
+    <g class="spot" data-z="d" tabindex="0" role="button" aria-label="탐정 본부에서 조사 비법 배우기">
+      <rect x="590" y="300" width="96" height="78" fill="#fff3d6"/>
+      <path d="M580 304 L638 258 L696 304Z" fill="#7a4cd9"/>
+      <rect x="626" y="336" width="24" height="42" fill="#7a4cd9"/>
+      <circle cx="660" cy="276" r="0" />
+      <g transform="translate(612 318)"><circle r="11" fill="#dff1ff" stroke="#14213d" stroke-width="4"/><path d="M8 8 L18 18" stroke="#14213d" stroke-width="5" stroke-linecap="round"/></g>
+      <rect x="560" y="460" width="160" height="34" rx="10" fill="#fff"/>
+      <text x="640" y="484" text-anchor="middle" font-family="Jua" font-size="21" fill="#7a4cd9">④ 탐정 본부</text>
+    </g>
+  </svg>
+  </div>
+  <div class="mission" id="mission"></div>
+  <div class="intro">
+    <div class="box"><h3>미션 방법</h3>
+      <ol><li><b>④ 탐정 본부</b>에서 자료 찾는 비법부터 배워요.</li>
+      <li>장소를 골라 <b>단서 카드</b>를 열고 자료를 읽어요.</li>
+      <li>퀴즈를 맞히면 카드가 <b>조사 노트</b>에 자동 저장! (한 번에 맞히면 별 3개)</li>
+      <li>노트의 내용과 <b>출처</b>를 학습지에 옮겨 적고 발표해요.</li></ol></div>
+    <div class="box"><h3>탐정 이름 등록</h3>
+      <p style="margin:0 0 8px">이름을 쓰면 점수판에 나와요.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="nm" maxlength="10" placeholder="예: 김탐정" aria-label="탐정 이름"><button class="btn" id="saveNm">등록</button></div>
+      <p style="margin:10px 0 0;font-size:14px;color:var(--muted)">이 화면의 자료는 실제 정부 누리집, 뉴스, 연구기관, 국제기구 자료를 4학년 눈높이로 쉽게 풀어 쓴 것이에요.</p></div>
+  </div>
+</div></section>
+
+<section class="view band" id="zone"><div class="wrap">
+  <div class="zhead"><div><h2 id="zt"></h2><p id="zd"></p></div><button class="ghost" data-go="hub">← 지도로</button></div>
+  <details class="read" id="zb" open></details>
+  <div class="grid" id="cards"></div>
+</div></section>
+
+<section class="view band" id="howto"><div class="wrap">
+  <div class="zhead"><div><h2 style="color:var(--d)">④ 탐정 본부 · 조사 비법</h2><p>진짜 탐정은 단서를 아무 데서나 줍지 않아요!</p></div><button class="ghost" data-go="hub">← 지도로</button></div>
+  <div class="intro" style="margin-top:0">
+    <div class="box"><h3>비법 1. 어디에서 찾을까?</h3>
+      <ul><li><b>정부·시청 누리집</b> — 기상청, 행정안전부, 서울시처럼 나라와 지역의 공식 자료</li>
+      <li><b>뉴스 기사</b> — 최근 소식. 누가 발표했는지, 날짜가 언제인지 꼭 보기</li>
+      <li><b>연구기관·국제기구</b> — 국립산림과학원, 유엔처럼 실제로 재고 조사한 자료</li>
+      <li><b>환경단체 자료</b> — 좋은 정보가 많지만 주장이 담길 수 있어 다른 자료와 비교하기</li>
+      <li><b>학교 도서관 책·어린이 신문</b> — 낱말 뜻을 쉽게 알 수 있어요</li></ul></div>
+    <div class="box"><h3>비법 2. 출처는 이렇게 적어요</h3>
+      <ol><li><b>누가</b> 만들었나요? (예: 기상청)</li><li><b>언제</b> 나왔나요? (예: 2021년 4월)</li><li><b>무슨 자료</b>인가요? (제목)</li><li><b>어디서</b> 봤나요? (누리집, 신문 이름)</li></ol>
+      <p class="speech" style="margin:10px 0 0;font-size:16px">예시) 기상청, 「우리나라 109년 기후변화 분석」 보도자료, 2021년 4월</p></div>
+  </div>
+  <h3 class="jua" style="font-size:26px;margin:26px 0 10px">비법 3. 검색할 때 이렇게 해 보세요</h3>
+  <div class="sites">
+    <div class="site"><b>검색어는 짧고 정확하게</b>"그늘막 온도", "쿨링로드 효과", "탄소중립 실천"처럼 낱말 2개로 검색해요.</div>
+    <div class="site"><b>날짜 확인</b>숫자 자료는 최근 것일수록 좋아요. 오래된 자료라면 "몇 년 기준"이라고 함께 적어요.</div>
+    <div class="site"><b>두 군데 이상 비교</b>같은 내용이 두 자료에 나오면 더 믿을 수 있어요.</div>
+  </div>
+  <h3 class="jua" style="font-size:26px;margin:26px 0 10px">어른과 함께 가 볼 만한 실제 누리집</h3>
+  <div class="sites">
+    <div class="site"><b>기후정보포털</b><code>www.climate.go.kr</code><br>기상청이 운영. 우리나라 기후변화 자료가 모여 있어요.</div>
+    <div class="site"><b>국민재난안전포털</b><code>www.safekorea.go.kr</code><br>폭염·한파 행동요령, 우리 동네 무더위쉼터 찾기</div>
+    <div class="site"><b>탄소중립포인트</b><code>www.cpoint.or.kr/netzero</code><br>한국환경공단. 생활 속 실천과 포인트 안내</div>
+    <div class="site"><b>대한민국 정책브리핑</b><code>www.korea.kr</code><br>나라의 기후변화 정책 소식</div>
+    <div class="site"><b>내 손안에 서울</b><code>mediahub.seoul.go.kr</code><br>그늘막, 쿨링포그, 온열의자 같은 생활 시설 소식</div>
+  </div>
+  <div class="quiz" style="--zc:var(--d);margin-top:26px">
+    <h3>탐정 테스트: 이 자료, 바로 써도 될까?</h3>
+    <div id="trust"></div>
+  </div>
+</div></section>
+</main>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="sheet" id="sheet"></div></div>
+<div class="modal" id="noteM" role="dialog" aria-modal="true"><div class="sheet" style="--zc:var(--sun)">
+  <div class="zhead"><h2 style="margin:0">조사 노트</h2><button class="ghost" id="closeNote">닫기</button></div>
+  <p style="margin:0 0 12px;color:var(--muted)">모은 단서가 저장돼요. 발표에 쓸 카드에 체크하면 아래에 발표 문장이 만들어져요.</p>
+  <div class="note-list" id="notes"></div>
+  <h3 class="jua" style="font-size:24px;margin:20px 0 8px">발표 문장 만들기</h3>
+  <div class="speech" id="speech">체크한 카드가 없어요. 위에서 발표하고 싶은 카드를 골라 보세요.</div>
+  <div class="row"><button class="ghost" id="reset">처음부터 다시</button><button class="btn" id="copy">노트 전체 복사</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<footer class="band"><div class="wrap">자료 카드의 내용은 각 출처의 원문을 바탕으로 쉽게 다시 쓴 것이에요. 숫자는 출처에 적힌 기준 날짜의 값이며, 원문 보기 링크로 확인할 수 있어요.</div></footer>
+
+<script>
+{
+const Z={a:{n:'① 탄소 줄이기 길',d:'대기 중 이산화탄소(온실가스)를 줄이는 방법을 조사해요.',c:'var(--a)'},
+b:{n:'② 폭염·한파 광장',d:'폭염, 한파, 폭우처럼 달라진 날씨에 알맞게 대처하는 방법을 조사해요.',c:'var(--b)'},
+c:{n:'③ 기업·국가 타워',d:'기업과 나라가 기울이는 노력을 조사해요.',c:'var(--c)'}};
+const T={gov:'정부·지자체',news:'뉴스 기사',lab:'연구기관',intl:'국제기구',ngo:'환경단체'};
+const IC={gov:'<path d="M2 14h12M3 12V7M6.5 12V7M9.5 12V7M13 12V7M1.5 6 8 2l6.5 4z" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+news:'<rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M5 6h6M5 9h6" stroke="currentColor" stroke-width="1.6"/>',
+lab:'<path d="M6 2v4L2.5 13h11L10 6V2M5 2h6" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+intl:'<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M2 8h12M8 2c3 3 3 9 0 12M8 2c-3 3-3 9 0 12" stroke="currentColor" stroke-width="1.2" fill="none"/>',
+ngo:'<path d="M8 14C3 10 2 7 4 4.5S8 4 8 6c0-2 2-3.5 4-1.5s1 5.5-4 9.5z" stroke="currentColor" stroke-width="1.6" fill="none"/>'};
+const D=[
+{z:'a',t:'news',title:'대중교통·자전거 이용하기',big:'17%',note:'서울 온실가스 중 수송(자동차 등) 분야가 약 17%(약 763만 톤, 2022년)',
+body:'서울에서 나오는 온실가스 중 자동차 같은 <b>수송 분야가 약 17%</b>(약 763만 톤, 2022년 기준)를 차지해요. 가까운 거리는 걷거나 자전거를 타고, 먼 거리는 버스·지하철을 타면 이 양을 줄일 수 있어요. 서울에서는 하루 이동 중 대중교통 비율이 54.5%(2022년)였어요.',
+src:{who:'서울특별시 환경분야 누리집',what:'[탄소중립 라이프 #5] 탄소 중립을 위한 친환경 수송',when:'2024년 10월',url:'https://news.seoul.go.kr/env/archives/560193'},t2:'gov',
+q:'서울 온실가스 중 수송(자동차 등) 분야는 약 몇 %일까요?',o:['약 17%','약 70%'],a:0},
+{z:'a',t:'lab',title:'안 쓰는 플러그 뽑기',big:'한 달 17.4kWh',note:'한 가정에서 한 달에 새는 대기전력 17.4kWh, 전기요금 약 2천 원',
+body:'전자제품을 꺼 두어도 플러그가 꽂혀 있으면 전기가 조금씩 새요. 이것을 <b>대기전력</b>이라고 해요. 한국전기연구원 조사에서 한 가정에서 <b>한 달 동안 새는 대기전력은 17.4kWh</b>, 전기요금으로 약 2천 원이었어요. 셋톱박스, 인터넷 모뎀이 대기전력이 많은 편이었어요. 연구원은 플러그 뽑기, 대기전력 차단 멀티탭 쓰기를 권했어요.',
+src:{who:'한국전기연구원(KERI) 조사, KIDD 보도',what:'2011년 대한민국 대기전력 실측조사 결과 발표',when:'2011년 조사',url:'https://kidd.co.kr/news/150009'},
+q:'대기전력은 무엇일까요?',o:['꺼져 있어도 플러그가 꽂혀 있어 새는 전기','번개가 칠 때 생기는 전기'],a:0},
+{z:'a',t:'news',title:'일회용품 줄이기',big:'10억 2400만 개',note:'2021년 주요 카페·패스트푸드점 일회용컵 10억 2400만 개, 회수율 18.8%',
+body:'2021년 한 해 동안 주요 카페와 패스트푸드점에서 쓴 <b>일회용컵이 10억 2400만 개</b>였어요. 그런데 다시 모인 컵은 <b>18.8%</b>뿐이었어요. 일회용품을 만들고, 버리고, 태우는 과정에서도 온실가스가 나와요.',
+src:{who:'더나은미래(조선일보) 기사, 환경부 제출 자료',what:'지난해 일회용 컵 10억개 사용… 회수 비율은 18%에 불과',when:'2022년 9월',url:'https://futurechosun.com/archives/68261'},
+q:'2021년 일회용컵 중 다시 모인 컵은 얼마나 될까요?',o:['약 90%','약 18.8%'],a:1},
+{z:'a',t:'ngo',title:'다회용컵·텀블러 쓰기',big:'2억 5천만 kg',note:'일회용컵을 다회용컵 대여로 바꾸면 해마다 탄소 2억 5천만 kg 이상 절약(그린피스)',
+body:'그린피스 보고서에 따르면, 우리나라에서 쓰는 일회용컵을 빌려 쓰고 돌려주는 <b>다회용컵으로 바꾸면 해마다 탄소를 2억 5천만 kg 넘게</b> 줄일 수 있어요. 컵 하나를 <b>1년에 20번</b>만 다시 써도 일회용컵보다 환경에 좋았어요.',
+src:{who:'그린피스 서울사무소',what:'재사용이 미래다: 다회용컵 및 일회용컵 전과정 평가 보고서',when:'2023년 11월',url:'https://www.greenpeace.org/korea/press/28746/presslease-single_use_plastics_report/'},
+warn:'환경단체 자료예요. 주장이 담길 수 있으니 다른 자료와 함께 비교해 보세요.',
+q:'다회용컵은 1년에 몇 번만 다시 써도 일회용컵보다 환경에 좋았나요?',o:['20번','1,000번'],a:0},
+{z:'a',t:'gov',title:'탄소중립실천포인트 받기',big:'1년 최대 7만 원',note:'텀블러·전자영수증 등 녹색생활 실천 시 포인트, 1년 최대 7만 원',
+body:'텀블러를 쓰거나 종이 영수증 대신 전자영수증을 받는 등 녹색생활을 실천하면 나라에서 포인트를 줘요. 이것을 <b>탄소중립실천포인트제</b>라고 해요. 리필스테이션 이용, 폐휴대폰 반납도 포함되고 <b>1년에 최대 7만 원</b>까지 받을 수 있어요. 한국환경공단이 운영해요.',
+src:{who:'농촌진흥청 웹진(참고자료: 한국환경공단)',what:'녹색생활 실천이 혜택으로 돌아온다 – 탄소중립실천포인트제',when:'2023년 10월',url:'https://rda.go.kr/webzine/2023/10/sub3-2.html'},
+q:'탄소중립실천포인트를 받을 수 있는 행동은?',o:['종이컵 많이 쓰기','텀블러·다회용컵 쓰기'],a:1},
+{z:'a',t:'lab',title:'나무 심고 숲 가꾸기',big:'1년 10.8톤',note:'30년생 소나무 숲 1ha가 1년에 이산화탄소 10.8톤 흡수 = 자동차 4.5대분',
+body:'나무는 공기 중 이산화탄소를 빨아들여요. 국립산림과학원이 전국 3212곳의 숲을 10년 동안 조사했더니, <b>30년 된 소나무 숲 1헥타르는 1년에 이산화탄소 10.8톤</b>을 흡수했어요. 자동차 4.5대가 1년 동안 내뿜는 양이에요. 상수리나무 같은 참나무는 흡수량이 더 많았어요.',
+src:{who:'서울신문 기사(국립산림과학원 발표)',what:'車사용 10% ↓= 소나무 1.7그루 – 산림과학원, 표준 탄소흡수량 발표',when:'2012년 11월',url:'https://seoul.co.kr/news/society/2012/11/19/20121119012002'},
+q:'30년 된 소나무 숲 1헥타르는 자동차 몇 대가 내뿜는 탄소를 흡수할까요?',o:['약 4.5대','약 450대'],a:0},
+{z:'a',t:'intl',title:'음식 남기지 않기',big:'8~10%',note:'버려지는 음식 관련 온실가스는 전 세계 배출량의 8~10%(유엔)',
+body:'먹지 않고 버린 음식은 쓰레기장에서 썩으면서 <b>메탄</b> 같은 온실가스를 내요. 유엔에 따르면 버려지는 음식과 관련된 온실가스는 <b>전 세계 온실가스의 8~10%</b>나 돼요. 2022년에는 음식 10억 5천만 톤이 버려졌어요. 급식을 먹을 만큼만 받는 것도 기후변화 대응이에요!',
+src:{who:'유엔기후변화협약(UNFCCC) 뉴스, 유엔환경계획(UNEP) 자료',what:'Food loss and waste account for 8-10% of annual global greenhouse gas emissions',when:'2024년 9월 30일',url:'https://unfccc.int/node/641010'},
+q:'음식을 남기지 않는 것이 기후변화 대응이 되는 까닭은?',o:['음식을 남기면 배가 고파서','버려진 음식이 썩으며 온실가스가 나와서'],a:1},
+{z:'a',t:'gov',title:'겨울 난방 20℃, 온맵시',big:'1℃ 낮추면 7%',note:'겨울 실내 적정 온도 18~20℃, 1℃ 낮추면 난방비 약 7% 절약',
+body:'겨울철 실내 적정 온도는 <b>18~20℃</b>예요. 난방 온도를 <b>1℃만 낮춰도 난방비를 약 7%</b> 아낄 수 있어요. 에너지를 덜 쓰면 전기·가스를 만들 때 나오는 온실가스도 줄어요. 내복, 수면양말을 입는 <b>온맵시</b>도 함께 해요.',
+src:{who:'대한민국 정책브리핑(korea.kr)',what:'알쏭달쏭 난방비 절약법 Q&A',when:'2017년 12월',url:'https://www.korea.kr/news/policyNewsView.do?newsId=148845570'},
+q:'겨울철 실내 적정 온도는 몇 ℃일까요?',o:['18~20℃','28~30℃'],a:0},
+
+{z:'b',t:'gov',title:'횡단보도 그늘막',big:'3,608개',note:'서울 횡단보도 그늘막 3,608개(2024년 7월), 스마트 그늘막은 자동으로 펴고 접힘',
+body:'횡단보도에서 신호를 기다리며 햇볕을 피할 수 있도록 <b>서울에만 그늘막 3,608개</b>가 설치되어 있어요(2024년 7월 기준). <b>스마트 그늘막</b>은 센서로 기온과 바람을 느껴 스스로 펴지고 접혀요. 태양광으로 밤에 LED를 켜 보안등 역할도 해요.',
+src:{who:'서울시 「내 손안에 서울」',what:'뜨거운 도시를 식힌다! 쿨링로드 등 폭염저감시설 가동 총력',when:'2024년 8월 7일',url:'https://mediahub.seoul.go.kr/archives/2011921'},
+src2:{who:'서울신문',what:'광진은 자동! 서울시 최초 ‘스마트그늘막’',when:'2019년 6월',url:'https://m.go.seoul.co.kr/news/2019/06/21/20190621020023'},
+q:'스마트 그늘막은 어떻게 움직일까요?',o:['사람이 매일 손으로 들고 다녀요','기온·바람을 느껴 스스로 펴지고 접혀요'],a:1},
+{z:'b',t:'gov',title:'더운 날 도로에 물 뿌리기 (쿨링로드)',big:'최대 11℃ ↓',note:'쿨링로드: 지하철 지하수를 도로에 뿌려 한여름 도로 온도 7~11℃ 낮춤',
+body:'<b>쿨링로드</b>는 도로 가운데에서 물을 뿜어 뜨거운 도로를 식히는 시설이에요. <b>지하철역에서 버려지는 지하수</b>를 써요. 한여름 도로 온도를 <b>49.6℃에서 38.6℃로, 7~11℃</b> 낮추고 미세먼지도 줄여요. 서울에는 시청역, 이수역 등 13곳(3.5km)에 있어요.',
+src:{who:'서울특별시 안전분야 누리집(도로관리과)',what:'서울시, 여름철 폭염대비 ‘쿨링로드’ 가동',when:'2025년 6월',url:'https://news.seoul.go.kr/safe/archives/510849'},
+q:'쿨링로드에 쓰는 물은 어디에서 올까요?',o:['지하철역에서 버려지는 지하수','바닷물'],a:0},
+{z:'b',t:'gov',title:'안개비 쿨링포그',big:'2~3℃ ↓',note:'쿨링포그: 0.02mm 이하 물방울이 증발하며 주변 온도 2~3℃ 낮춤',
+body:'<b>쿨링포그</b>는 아주 작은 물방울(0.02mm 이하)을 안개처럼 뿜어요. 물이 증발하면서 주변의 열을 빼앗아 <b>온도를 2~3℃</b> 낮춰요. 기온이 25℃ 이하이거나 습도가 70% 이상이면 자동으로 멈춰요. 4학년 과학 시간에 배운 <b>증발</b>이 쓰였어요!',
+src:{who:'서울특별시 환경분야 누리집(기후대기과)',what:'올 여름 무더위, 「서울로 7017」에서 안개비로 날린다',when:'2023년 11월 수정',url:'https://news.seoul.go.kr/env/?p=502480'},
+q:'쿨링포그가 시원한 까닭은?',o:['물이 증발하면서 주변 열을 빼앗아서','물이 얼음처럼 차가워서'],a:0},
+{z:'b',t:'gov',title:'지붕을 흰색 페인트로 (쿨루프)',big:'66℃ → 28℃ 이상 ↓',note:'어두운 지붕은 한낮 66℃까지, 흰색 쿨루프는 28℃ 이상 냉각 효과(미국 에너지부)',
+body:'어두운 색 지붕은 한여름 낮에 <b>66℃</b>까지 뜨거워질 수 있어요. 지붕을 흰색으로 칠하는 <b>쿨루프</b>는 햇빛을 반사해서 <b>28℃ 이상 시원하게</b> 하는 효과가 있어요(미국 에너지부 자료). 서울시는 2019년부터 쿨루프를 지원해 575곳에 설치했고, 꼭대기 층 온도를 1~2℃ 낮출 수 있다고 해요.',
+src:{who:'서울특별시 환경분야 누리집(미국 에너지부 자료 인용)',what:'옥상도 에너지다, ‘옥상흰빛 캠페인’ 열어',when:'미국 에너지부 2010년 자료',url:'https://news.seoul.go.kr/env/archives/43080'},
+src2:{who:'헤럴드경제(다음뉴스)',what:'펄펄 끓던 우리 집 왜 시원해졌지?…하얀 옥상의 마법',when:'2025년 8월',url:'https://v.daum.net/v/20250822184629602'},
+q:'지붕을 흰색으로 칠하는 까닭은?',o:['햇빛을 반사해 덜 뜨거워지라고','눈에 잘 띄라고'],a:0},
+{z:'b',t:'news',title:'도시숲 만들기',big:'최대 1.8℃ ↓',note:'도시숲은 한낮 도심보다 최대 1.8℃, 밤에도 1.3~1.6℃ 낮음(국립산림과학원)',
+body:'국립산림과학원이 서울 도심과 도시숲의 기온을 1년 동안 재 보니, 도시숲은 한낮에 <b>도심보다 최대 1.8℃ 낮았어요</b>. 나무가 햇빛을 막고, 잎에서 물을 내뿜어 공기를 식히기 때문이에요. 밤에도 1.3~1.6℃ 낮아 <b>열대야</b>를 줄여 줘요.',
+src:{who:'YTN 뉴스(국립산림과학원 관측 결과)',what:'도시 숲, 활엽수림·혼효림이 폭염 가장 효과적으로 낮춰',when:'2026년 7월',url:'https://www.ytn.co.kr/_ln/0108_202607270950494111'},
+q:'도시숲이 시원한 까닭으로 알맞은 것은?',o:['잎에서 물을 내뿜어 공기를 식혀서','나무가 바람을 모두 막아서'],a:0},
+{z:'b',t:'gov',title:'무더위쉼터',big:'약 9만 3천 곳',note:'전국 무더위쉼터 약 9만 3천 곳(2026년 8월), 국민재난안전포털에서 찾기',
+body:'<b>무더위쉼터</b>는 더위를 피해 쉬어 갈 수 있는 냉방 공간이에요. 경로당, 주민센터, 은행, 도서관, 기차역 등 <b>전국 약 9만 3천 곳</b>이 있어요(2026년 8월). 2006년 2만 곳쯤에서 크게 늘었어요. 우리 동네 쉼터는 <b>국민재난안전포털</b>에서 찾을 수 있어요.',
+src:{who:'행정안전부 보도자료(KDI 경제정보센터 게시)',what:'폭염대피소에서 생활 속 무더위쉼터로, 더 가까이 더 편리하게',when:'2026년 8월 12일',url:'https://eiec.kdi.re.kr/policy/materialView.do?num=285333'},
+q:'우리 동네 무더위쉼터는 어디에서 찾을 수 있나요?',o:['게임 앱','국민재난안전포털'],a:1},
+{z:'b',t:'news',title:'폭염특보 알고 대비하기',big:'33℃ · 35℃ · 38℃',note:'체감온도 33℃ 폭염주의보, 35℃ 폭염경보, 38℃ 폭염중대경보(2026년 신설)',
+body:'기상청은 사람이 실제로 느끼는 <b>체감온도</b>로 폭염특보를 내려요. 체감온도 <b>33℃</b> 이상이 이틀 넘게 이어지면 <b>폭염주의보</b>, <b>35℃</b> 이상이면 <b>폭염경보</b>예요. 2026년에는 <b>38℃</b> 이상이 하루만 예상돼도 내리는 <b>폭염중대경보</b>가 새로 생겼어요. 특보가 내리면 한낮 야외활동을 줄여요.',
+src:{who:'YTN 뉴스',what:'꼭 알아야 할 폭염특보 기준과 유의점',when:'2026년 7월',url:'https://www.ytn.co.kr/_ln/0108_202607261201515967'},
+src2:{who:'세계일보',what:'폭염특보 18년 만에 3단계로 개편',when:'2026년 7월 10일',url:'https://www.segye.com/newsView/20260710504139'},
+q:'폭염경보는 체감온도 몇 ℃ 이상일 때 내려질까요?',o:['35℃','25℃'],a:0},
+{z:'b',t:'gov',title:'한파 대비 온열의자·추위녹이소',big:'3,433곳',note:'서울 버스정류소 3,433곳 온열의자(2023년), 추위녹이소 안은 바깥보다 약 3℃ 따뜻',
+body:'추운 겨울 버스를 기다리는 사람들을 위해 서울시는 <b>버스정류소 3,433곳에 온열의자</b>를 설치했어요(2023년). 서울 도봉구의 <b>추위녹이소</b>는 미닫이문이 달린 바람막이인데, 안이 바깥보다 <b>약 3℃</b> 따뜻하고 체감온도는 5~10℃ 따뜻하게 느껴진대요. 교과서의 난방 텐트와 같은 역할이에요.',
+src:{who:'서울시 「내 손안에 서울」',what:'버스정류소도 ‘엉뜨’ 가능! 정류소 온열의자 3,433개소 확대',when:'2023년 10월 23일',url:'https://mediahub.seoul.go.kr/archives/2009365'},
+src2:{who:'세계일보',what:'도봉구 버스정류장 한파 대비 시설물 증설',when:'2024년 12월 17일',url:'https://www.segye.com/newsView/20241217518441'},
+q:'추위녹이소 안은 바깥보다 약 몇 ℃ 따뜻할까요?',o:['약 30℃','약 3℃'],a:1},
+
+{z:'c',t:'intl',title:'세계의 약속, 파리협정',big:'195개국',note:'2015년 12월 12일 195개국 파리협정: 2℃보다 훨씬 낮게, 1.5℃ 노력',
+body:'2015년 12월 12일, 프랑스 파리에서 <b>195개 나라</b>가 파리협정에 뜻을 모았어요. 지구 평균기온이 산업화 이전보다 <b>2℃보다 훨씬 낮게</b> 오르도록 하고, <b>1.5℃</b>까지로 막도록 노력하기로 약속했어요. 나라마다 온실가스를 얼마나 줄일지 스스로 목표를 정해요.',
+src:{who:'유엔기후변화협약(UNFCCC)',what:'Historic Paris Agreement on Climate Change: 195 Nations Set Path',when:'2015년 12월 12일',url:'https://unfccc.int/fr/node/13935'},
+src2:{who:'환경부·한국환경공단',what:'파리협정 함께 보기(알기 쉬운 소책자)',when:'2022년 3월',url:'https://gcedclearinghouse.org/sites/default/files/resources/230268kor.pdf'},
+q:'파리협정에서 노력하기로 한 기온 상승 한계는?',o:['15℃','1.5℃'],a:1},
+{z:'c',t:'gov',title:'2050 탄소중립 목표',big:'2030년까지 40% ↓',note:'우리나라 2050 탄소중립, 2030년까지 2018년(7억 2760만 톤) 대비 40% 감축',
+body:'우리나라는 <b>2050년까지 탄소중립</b>을 이루려고 해요. 탄소중립은 내보내는 온실가스와 숲 등이 흡수하는 양을 같게 해서 <b>순배출량을 0</b>으로 만드는 것이에요. 중간 목표로 <b>2030년까지 2018년(7억 2760만 톤)보다 40% 줄인</b> 4억 3660만 톤까지 낮추기로 했어요.',
+src:{who:'대한민국 정책브리핑(환경부)',what:'‘2050 탄소중립 시나리오’, ‘2030 40% 감축안’ 국무회의 의결',when:'2021년 10월 27일',url:'https://www.korea.kr/news/policyNewsView.do?newsId=148894861'},
+q:'탄소중립이란 무엇일까요?',o:['내보내는 온실가스와 흡수하는 양을 같게 해 0으로 만드는 것','탄소를 쓰지 않던 옛날로 돌아가는 것'],a:0},
+{z:'c',t:'ngo',title:'기업의 약속, RE100',big:'한국 기업 36곳',note:'RE100: 기업 전기 100% 재생에너지로. 전 세계 435곳, 한국 36곳(2024년 12월)',
+body:'<b>RE100</b>은 기업이 쓰는 전기를 <b>100% 햇빛·바람 같은 재생에너지</b>로 바꾸겠다는 약속이에요. 2024년 12월 기준 애플, 구글 등 <b>전 세계 435개 기업</b>, 우리나라는 삼성전자, SK하이닉스, 현대자동차 등 <b>36개 기업</b>이 참여하고 있어요.',
+src:{who:'그린피스 서울사무소',what:'LNG 문제와 RE100 기업 경쟁력',when:'2024년 12월 기준 자료',url:'https://www.greenpeace.org/korea/update/32709/blog-ce-lng-problem-re100-company-competitive/'},
+warn:'환경단체 자료예요. 숫자는 RE100 공식 누리집이나 뉴스와 비교해 보면 더 좋아요.',
+q:'RE100의 RE는 무슨 뜻일까요?',o:['재생에너지(Renewable Energy)','진짜 에너지(Real Energy)'],a:0},
+{z:'c',t:'news',title:'햇빛·바람으로 전기 만들기',big:'처음으로 석탄 추월',note:'2025년 상반기 세계 재생에너지 발전량(5072TWh)이 처음으로 석탄(4896TWh) 추월',
+body:'2025년 상반기, 전 세계에서 햇빛·바람 등 <b>재생에너지로 만든 전기(5072TWh)</b>가 처음으로 <b>석탄으로 만든 전기(4896TWh)</b>보다 많아졌어요. 석탄을 태우면 이산화탄소가 많이 나오지만, 태양광·풍력은 전기를 만들 때 온실가스가 거의 나오지 않아요. 교과서의 <b>햇빛으로 전기를 생산해요</b>와 연결돼요.',
+src:{who:'경향신문(기후·에너지 싱크탱크 엠버 보고서)',what:'세계 재생에너지 발전량, 처음으로 석탄 추월',when:'2025년 10월 9일',url:'https://www.khan.co.kr/article/202510091544001'},
+q:'2025년 상반기, 재생에너지 전기가 처음으로 앞지른 것은?',o:['석탄으로 만든 전기','자전거로 만든 전기'],a:0},
+{z:'c',t:'news',title:'기술로 일회용컵 줄이는 기업',big:'580만 개',note:'SK텔레콤 다회용컵 서비스(해피해빗), 제주에서 일회용컵 580만 개 절감(2022년 12월까지)',
+body:'SK텔레콤 같은 기업은 정보통신기술로 <b>다회용컵을 빌려주고 무인 반납기로 돌려받는</b> 서비스를 만들었어요. 환경부, 지자체와 함께하는 이 서비스로 제주도에서 2022년 12월 초까지 <b>일회용컵 580만 개</b>를 줄였어요. 기업의 <b>새로운 기술 개발</b>이에요.',
+src:{who:'아주경제',what:'이통사, ICT 기반 다회용컵 무인 회수 체계 개발',when:'2023년 3월 16일',url:'https://www.ajunews.com/view/20230316114910762'},
+q:'기업이 기후변화에 대응하는 방법으로 알맞은 것은?',o:['새로운 기술로 일회용품을 줄이는 서비스 만들기','물건을 더 많이 버리게 광고하기'],a:0},
+{z:'c',t:'gov',title:'나라가 기후를 관측해요',big:'109년간 1.6℃ ↑',note:'기상청 109년(1912~2020) 분석: 연평균 기온 1.6℃ 상승, 여름 20일 길어지고 겨울 22일 짧아짐',
+body:'기상청이 <b>109년(1912~2020년)</b> 기록을 분석했더니 우리나라 연평균 기온이 <b>1.6℃ 올랐어요</b>. 여름은 <b>20일 길어지고</b> 겨울은 <b>22일 짧아졌어요</b>. 비가 오는 날은 줄었지만 한 번에 많이 오는 경향이 커졌어요. 나라는 이렇게 기후를 꾸준히 관측해 대응 계획을 세워요.',
+src:{who:'기상청 보도자료',what:'우리나라 109년 기후변화 분석 결과',when:'2021년 4월 27일',url:'https://www.kma.go.kr/kma/flexer/html/press/2021/04/27/ATC202104271102111_226ab095-6244-4ed5-86cc-e7b6240fb7e7.hwp.files/Sections1.html'},
+src2:{who:'노컷뉴스',what:'여름 길어지고 가장 추운 절기에도 ‘영상’ 기온 보였다',when:'2021년 4월',url:'https://www.nocutnews.co.kr/news/5543892'},
+q:'최근 30년의 여름은 과거보다 며칠 길어졌나요?',o:['20일','200일'],a:0},
+{z:'c',t:'news',title:'나라의 도시숲·바람길숲',big:'19개 도시',note:'산림청: 1인당 생활권 도시숲 6.6㎡→11.5㎡, 바람길숲 19개 도시 조성 중(2024년)',
+body:'산림청은 도시의 열을 식히고 탄소를 흡수하는 <b>도시숲</b>을 늘리고 있어요. 1인당 생활권 도시숲 면적은 2005년 6.6㎡에서 <b>11.5㎡</b>로 2배 가까이 늘었어요. 도시 밖 산의 시원한 공기를 도시 안으로 끌어들이는 <b>바람길숲</b>도 19개 도시에 만들고 있어요(2024년).',
+src:{who:'파이낸셜뉴스(산림청장 칼럼)',what:'[차관 칼럼] 도시숲 확대로 시원한 여름나기',when:'2024년 8월 18일',url:'https://www.fnnews.com/news/202408181925051908'},
+q:'바람길숲이 하는 일은 무엇일까요?',o:['도시 밖 시원한 공기를 도시 안으로 끌어들여요','도시의 바람을 모두 막아요'],a:0}
+,{z:'a',t:'gov',title:'LED 전등으로 바꾸기',big:'효율 약 50% ↑',note:'LED는 형광램프보다 효율 약 50% 높고 수명 3배, 형광등은 2027년까지 LED로 전환(산업통상자원부)',
+body:'교실과 집의 전등을 <b>LED</b>로 바꾸면 같은 밝기를 내는 데 전기가 훨씬 적게 들어요. 산업통상자원부에 따르면 LED 조명은 형광램프보다 <b>효율이 약 50% 높고 수명은 3배</b> 길어요. 그래서 나라는 <b>2027년까지 형광등을 LED로 바꾸도록</b> 기준을 높였어요. 정부 시험에서는 LED 전구끼리도 효율이 좋은 제품이 최대 39% 전기를 덜 썼어요.',
+src:{who:'산업통상자원부 보도자료',what:'형광등, 2027년까지 발광 다이오드(LED)로 전환',when:'2023년 2월',url:'https://www.motir.go.kr/kor/article/ATCL3f49a5a8c/166820/view'},
+src2:{who:'대한민국 정책브리핑',what:'‘LED전구’ 비교정보 생산 결과',when:'정책브리핑 게시 자료',url:'https://www.korea.kr/news/policyNewsView.do?newsId=156529051'},
+q:'LED 조명은 형광램프보다 수명이 몇 배 길까요?',o:['3배','반밖에 안 돼요'],a:0},
+{z:'a',t:'gov',title:'투명 페트병 따로 버리기',big:'페트병 → 옷·가방',note:'투명 페트병을 따로 분리배출하면 고품질 재생원료가 되어 옷·가방으로 재활용(환경부)',
+body:'생수·음료 <b>투명 페트병</b>을 다른 플라스틱과 섞지 않고 <b>따로</b> 버리면, 실처럼 길게 뽑을 수 있는 고품질 재생원료가 돼요. 이걸로 <b>옷이나 가방</b>을 만들 수 있어요. 아파트는 2020년 12월, 단독주택은 2021년 12월부터 따로 버리게 되었어요. 버릴 때는 <b>라벨을 떼고, 헹구고</b>, 찌그러뜨려요. 새 플라스틱을 덜 만들면 석유와 에너지를 아낄 수 있어요.',
+src:{who:'대한민국 정책브리핑(환경부 보도자료)',what:'단독주택에서도 투명페트병 별도 분리배출 본격 시행',when:'2021년 12월 23일',url:'https://m.korea.kr/briefing/pressReleaseView.do?newsId=156488137'},
+src2:{who:'서울시 「내 손안에 서울」',what:'투명페트병 분리배출, 우리 함께 해요!',when:'서울시 게시 자료',url:'https://mediahub.seoul.go.kr/archives/2001556'},
+q:'투명 페트병을 버릴 때 꼭 해야 할 일은?',o:['라벨 떼고 헹구기','음료를 남겨 두기'],a:0},
+{z:'a',t:'ngo',title:'고기 조금 덜 먹기',big:'소고기 ≈ 닭고기 × 10',note:'소고기는 닭고기보다 온실가스 약 10배, 축산업은 전체 온실가스의 약 14%(그린피스·IPCC 인용)',
+body:'소는 먹이를 소화하면서 트림으로 <b>메탄</b>을 내뿜고, 소를 키우려면 넓은 땅과 많은 사료가 필요해요. 그린피스가 소개한 자료에 따르면 <b>소고기는 닭고기보다 온실가스를 약 10배</b> 더 많이 내고, IPCC(유엔 기후변화 과학 기구) 2014년 보고서에서 가축을 기르며 나오는 온실가스는 전체의 약 <b>14%</b>였어요. 고기를 끊으라는 것이 아니라, 채소 반찬도 골고루 먹는 것이 도움이 돼요.',
+src:{who:'그린피스 서울사무소',what:'대체육, 지구를 아껴줄 Dynamite! / 세계 고기 없는 주간에 동참해보세요',when:'그린피스 블로그 글',url:'https://www.greenpeace.org/korea/update/15816/blog-ce-alternative-meat-veryvezy/'},
+warn:'환경단체 자료예요. 숫자는 조사 방법에 따라 달라질 수 있으니 다른 자료와 비교해 보세요.',
+q:'소고기가 온실가스를 많이 내는 까닭으로 알맞은 것은?',o:['소가 트림으로 메탄을 내뿜어서','소고기가 빨간색이라서'],a:0},
+{z:'b',t:'gov',title:'옥상정원 만들기',big:'평균 3.1℃ ↓',note:'서울시 옥상녹화 구간은 안 한 곳보다 지표온도 평균 3.1℃ 낮음(2020년 6~11월), 20년간 785개 건물',
+body:'회색 콘크리트 옥상에 흙을 덮고 나무와 풀을 심으면 <b>옥상정원</b>이 돼요. 서울시가 같은 장소에서 비교해 보니 옥상녹화를 한 곳이 안 한 곳보다 <b>지표온도가 평균 3.1℃ 낮았어요</b>(2020년 6~11월). 여름엔 건물이 덜 뜨거워지고, 겨울엔 흙과 식물이 이불처럼 열이 빠져나가는 것을 막아 <b>난방 에너지도 줄여요</b>. 서울시는 2002년부터 약 20년간 <b>785개 건물</b>에 옥상정원을 만들었고, 나비·벌·잠자리가 찾아오는 작은 생태 공간이 되기도 해요.',
+src:{who:'서울특별시 환경분야 누리집',what:'서울시, 20년간 총 785개 건물 옥상녹화… 대법원 서관도 그린 오아시스 탈바꿈',when:'2021년',url:'https://news.seoul.go.kr/env/archives/516253'},
+src2:{who:'서울특별시 환경분야 누리집',what:'여름의 열기는 낮추고 시민은 쉬어가는 작은 숲… 서울시, 옥상정원 확충',when:'2025년',url:'https://news.seoul.go.kr/env/archives/564339'},
+q:'옥상정원이 겨울에도 도움이 되는 까닭은?',o:['흙과 식물이 열이 빠져나가는 것을 막아서','눈이 쌓이지 않아서'],a:0},
+{z:'b',t:'lab',title:'덩굴식물 그린커튼',big:'낮 기온 1.6℃ ↓',note:'나팔꽃 그린커튼을 단 건물 안은 여름 낮 기온이 평균 1.6℃ 낮음(제주대 연구, 2022)',
+body:'<b>그린커튼</b>은 나팔꽃, 여주, 풍선초 같은 덩굴식물을 창문 앞에 키워 <b>살아 있는 커튼</b>을 만드는 거예요. 제주대학교 연구팀이 2021년 여름에 재 보니, 나팔꽃 그린커튼을 단 건물 안은 <b>낮 기온이 평균 1.6℃</b> 더 시원했어요. 서울 강동구는 보건소, 초등학교 등 5곳에 그린커튼을 만들기도 했어요. 교실 창가 화분에서도 해 볼 수 있어요!',
+src:{who:'한국조경학회지(제주대학교 연구팀)',what:'Green Curtain 형식의 벽면녹화시스템을 통한 여름철 건물 실내 열환경 비교 분석',when:'2022년 10월',url:'https://koreascience.kr/article/JAKO202231557765556.page?lang=ko'},
+src2:{who:'서울 강동구청 보도자료',what:'강동구, ‘그린커튼으로 도심을 푸르게’',when:'2017년 8월',url:'https://www.gangdong.go.kr/web/newportal/press/7373'},
+q:'그린커튼에 쓰기 좋은 식물은?',o:['나팔꽃 같은 덩굴식물','선인장'],a:0},
+{z:'b',t:'gov',title:'빗물저금통 쓰기',big:'설치비 90% 지원',note:'빗물저금통: 지붕 빗물을 모아 청소·화단에 사용, 서울시 설치비 90% 지원, 1,255개 보급',
+body:'<b>빗물저금통</b>은 지붕에 내린 빗물을 통에 모아 두었다가 화단에 물 주기, 마당 청소 등에 쓰는 시설이에요. 수돗물을 아낄 수 있고, 비가 많이 올 때 빗물이 한꺼번에 하수도로 몰리는 것도 조금 줄여 줘요. 서울시는 2007년부터 <b>1,255개</b>를 보급했고 설치비의 <b>90%</b>를 지원해요. 학교에도 설치할 수 있어요.',
+src:{who:'서울특별시 환경분야 누리집(물순환정책과)',what:'흐르는 빗물 모아 필요할 때 다시 써요… 빗물저금통 설치비 90% 지원',when:'서울시 게시 자료',url:'https://news.seoul.go.kr/env/archives/517968'},
+q:'빗물저금통에 모은 물은 어디에 쓸까요?',o:['화단 물 주기, 청소','마시는 물'],a:0},
+{z:'b',t:'gov',title:'폭우 대비 빗물터널',big:'32만 톤 저장',note:'신월 대심도 빗물저류배수시설: 32만 톤 저장, 시간당 95~100mm 폭우 처리, 2022년 폭우 때 양천 침수 막음',
+body:'기후변화로 짧은 시간에 비가 엄청나게 쏟아지는 <b>집중호우</b>가 늘었어요. 서울 양천구 땅속 깊은 곳에는 빗물을 잠시 담아 두는 거대한 터널(<b>신월 빗물저류배수시설</b>)이 있어요. <b>32만 톤</b>을 담을 수 있고 시간당 95~100mm의 폭우를 처리해요. 2022년 8월 폭우 때 이 터널이 있는 양천 지역은 침수 피해가 없었지만, 터널이 없던 강남 지역은 크게 물에 잠겼어요. 서울시는 강남역, 광화문, 도림천에도 빗물터널을 만들고 있어요.',
+src:{who:'서울시 「내 손안에 서울」',what:'신속한 수해복구를 위해 최선의 노력을 다하겠습니다',when:'2022년 8월 10일',url:'https://mediahub.seoul.go.kr/archives/2005316'},
+src2:{who:'서울특별시 환경분야 누리집(치수안전과)',what:'풍수해 이렇게 대비하세요! (서울시 풍수해 예방 대책)',when:'2025년 6월',url:'https://news.seoul.go.kr/env/archives/563587'},
+q:'빗물터널은 어떤 기후변화 현상에 대비하는 시설일까요?',o:['집중호우(폭우)','가뭄으로 생긴 황사'],a:0},
+{z:'c',t:'gov',title:'기후동행카드와 대중교통',big:'승용차 210g vs 지하철 1.5g',note:'1km 이동 시 온실가스: 승용차 210g, 버스 27.7g, 지하철 1.5g(한국에너지공단), 기후동행카드 4개월 9,270톤 감축',
+body:'한국에너지공단 자료에 따르면 <b>1km를 이동할 때</b> 나오는 온실가스는 <b>승용차 210g, 버스 27.7g, 지하철 1.5g</b>이에요. 지하철이 승용차보다 100배 넘게 적어요! 그래서 서울시는 한 달에 정해진 돈만 내면 지하철·버스·따릉이를 마음껏 탈 수 있는 <b>기후동행카드</b>를 만들었어요. 서울시 분석으로는 시범 운영 4개월 동안 승용차 이용이 줄어 온실가스 약 <b>9,270톤</b>을 줄였어요.',
+src:{who:'서울특별시 교통분야 누리집',what:'기후동행카드 도입 안내(수단별 온실가스 배출량: 한국에너지공단)',when:'2023년',url:'https://news.seoul.go.kr/traffic/archives/510043'},
+src2:{who:'서울특별시 보도자료',what:'정책 밀리언셀러 ‘기후동행카드’… 7월 1일 본사업 시작',when:'2024년',url:'https://www.seoul.go.kr/news/news_report.do?nttNo=414644'},
+q:'1km를 이동할 때 온실가스가 가장 적게 나오는 것은?',o:['승용차','지하철'],a:1},
+{z:'c',t:'gov',title:'학교 옥상 태양광 (햇빛이음학교)',big:'학교당 연 약 1천만 원 절약',note:'국공립 초·중 태양광 보급률 34.6%, 2030년까지 확대, 50kW 설비로 학교당 연 68MWh·전기요금 약 1천만 원 절감(교육부)',
+body:'교육부는 2030년까지 국공립 초·중학교 옥상에 태양광 발전 설비를 늘리는 <b>햇빛이음학교</b> 사업을 하고 있어요. 지금은 학교 10곳 중 약 3~4곳(<b>34.6%</b>)에만 태양광이 있어요. 학교에 50kW 설비를 달면 1년에 약 68MWh의 전기를 만들어 <b>전기요금을 약 1천만 원</b> 아낄 수 있대요. 학교 복도 화면으로 오늘 만든 전기의 양과 줄인 탄소를 볼 수 있게 할 계획이에요.',
+src:{who:'한국경제(교육부 발표)',what:'교육부, 2030년까지 국공립 초·중등학교 태양광 ‘햇빛이음학교’ 추진',when:'2026년 2월 26일',url:'https://www.hankyung.com/article/202602266306i'},
+q:'햇빛이음학교 사업은 학교에 무엇을 설치하나요?',o:['태양광 발전 설비','석탄 보일러'],a:0},
+{z:'c',t:'news',title:'전기차로 바꾸기',big:'1년 20만 대 돌파',note:'2025년 전기차 연간 보급 처음 20만 대 돌파(기후에너지환경부), 2026년 4월 누적 100만 대',
+body:'전기차는 휘발유 대신 배터리 전기로 달려서 달리는 동안 배기가스가 나오지 않아요. 기후에너지환경부에 따르면 2025년에는 처음으로 <b>1년 동안 전기차 20만 대</b>가 넘게 보급되었어요. 2026년 4월에는 우리나라 전기차가 모두 합쳐 <b>100만 대</b>를 넘었어요. 나라는 보조금을 주고 충전소를 늘려 전기차를 사기 쉽게 돕고 있어요. 전기를 재생에너지로 만들수록 전기차는 더 깨끗해져요.',
+src:{who:'SBS Biz(기후에너지환경부 발표)',what:'올해 전기차 등록, 벌써 20만대 넘었다…사상 처음',when:'2025년 11월 16일',url:'https://biz.sbs.co.kr/amp/article/20000272492'},
+src2:{who:'데일리안(기후에너지환경부 발표)',what:'전기차 신차 비중 20.1%…4월 셋째 주 신규 등록 10만대',when:'2026년 4월',url:'https://www.dailian.co.kr/news/view/1635923/'},
+q:'전기차가 기후변화 대응에 도움이 되는 까닭은?',o:['달리는 동안 배기가스가 나오지 않아서','속도가 느려서'],a:0},
+{z:'c',t:'news',title:'바다숲과 블루카본',big:'육지보다 최대 50배',note:'블루카본(바다·갯벌이 흡수하는 탄소)은 흡수 속도가 육상생태계보다 최대 50배 빠르다(2009 유엔 보고서)',
+body:'바닷속에 미역, 다시마 같은 해조류와 잘피가 숲처럼 자라는 곳을 <b>바다숲</b>이라고 해요. 바다숲과 갯벌이 흡수하는 탄소를 <b>블루카본</b>이라고 하는데, 2009년 유엔 보고서에 따르면 흡수 속도가 육상생태계보다 <b>최대 50배</b> 빠를 수 있대요. 우리나라는 해양수산부와 한국수산자원공단이 바다숲을 만들고 있고, 5월 10일은 <b>바다식목일</b>이에요. 다만 정확히 얼마나 흡수하는지는 아직 연구 중이에요.',
+src:{who:'데일리안(다음뉴스)',what:'[탄소 먹는 하마①] ‘블루 카본’이 뭐길래',when:'2022년 8월 23일',url:'https://v.daum.net/v/20220823053044174'},
+src2:{who:'한국경제 생글생글',what:'(147) 블루카본과 해조류 – 바다식목일 아시나요?',when:'2023년 6월',url:'https://sgsg.hankyung.com/article/2023060988281'},
+q:'바다와 갯벌이 흡수하는 탄소를 무엇이라고 할까요?',o:['블루카본','블랙카본'],a:0}
+
+];
+const EX=[
+{w:'자동차는 휘발유나 경유를 태워서 움직여요. 연료가 탈 때 이산화탄소가 공기 중으로 나와요. 버스와 지하철은 한 번에 많은 사람이 함께 타기 때문에, 한 사람이 이동할 때 나오는 온실가스가 승용차보다 훨씬 적어요. 걷기와 자전거는 연료를 전혀 쓰지 않아서 온실가스가 거의 나오지 않고, 우리 몸도 튼튼해져요.',d:['학교 오갈 때 걷거나 자전거 타기','가족 나들이 때 버스·지하철 이용해 보기','가까운 곳은 차 대신 걸어가자고 가족에게 제안하기'],k:'우리 집에서 자동차 대신 걷거나 대중교통을 탈 수 있는 곳은 어디일까요?',wd:['수송: 사람이나 물건을 실어 옮기는 일','온실가스: 지구를 둘러싸 열이 빠져나가지 못하게 하는 기체(이산화탄소, 메탄 등)']},
+{w:'우리나라 전기의 많은 양은 석탄이나 가스를 태우는 발전소에서 만들어요. 그래서 전기를 아끼면 발전소에서 태우는 연료가 줄고, 이산화탄소도 줄어요. 대기전력은 한 집에서는 적어 보여도, 전국의 모든 집을 더하면 아주 큰 양이 돼요.',d:['안 쓰는 충전기·TV 플러그 뽑기','스위치가 달린 멀티탭 사용하기','교실을 나갈 때 전등·컴퓨터 끄기 당번 정하기'],k:'우리 교실에서 꺼져 있어도 플러그가 꽂혀 있는 전자제품은 무엇이 있을까요?',wd:['대기전력: 전자제품을 꺼 두어도 플러그가 꽂혀 있어 새어 나가는 전기','kWh(킬로와트시): 전기를 얼마나 썼는지 나타내는 단위']},
+{w:'종이컵과 플라스틱 컵은 나무와 석유로 만들어요. 만들 때, 실어 나를 때, 다 쓰고 태울 때 모두 에너지가 들고 온실가스가 나와요. 한 번 쓰고 버리는 물건이 많을수록 이 과정이 계속 반복돼요. 다시 모아서 재활용하면 새로 만드는 양을 줄일 수 있어요.',d:['물통·텀블러 들고 다니기','과자·음료 살 때 비닐봉투 대신 장바구니 쓰기','재활용품을 깨끗이 씻어 분리배출하기'],k:'우리 반에서 일주일 동안 쓰는 일회용품은 몇 개쯤일까요? 세어 볼까요?',wd:['일회용품: 한 번 쓰고 버리는 물건','회수율: 쓴 물건 중 다시 거두어 모은 비율']},
+{w:'다회용컵은 처음 만들 때 일회용컵보다 재료와 에너지가 더 들어요. 하지만 여러 번 씻어서 다시 쓰면, 한 번 쓸 때마다 드는 몫이 점점 작아져요. 그래서 오래, 자주 쓸수록 환경에 더 좋아요. 반대로 다회용컵을 사 놓고 잘 안 쓰면 효과가 줄어들어요.',d:['내 물통에 이름 붙여 매일 쓰기','새 텀블러를 자꾸 사지 말고 있는 것 오래 쓰기','카페에 갈 때 가족에게 텀블러 챙기자고 말하기'],k:'다회용컵을 "많이 사는 것"과 "오래 쓰는 것" 중 어느 쪽이 환경에 더 좋을까요? 왜 그럴까요?',wd:['다회용: 여러 번 쓰는 것','보고서: 조사하거나 연구한 내용을 정리한 글']},
+{w:'좋은 행동을 하면 보상을 받을 수 있게 하면 더 많은 사람이 참여하게 돼요. 나라는 이런 제도를 만들어서 국민 한 사람 한 사람의 작은 실천이 모여 큰 변화가 되도록 돕고 있어요. 이것은 개인의 노력과 나라의 노력이 함께하는 예예요.',d:['가족과 함께 탄소중립포인트 누리집 살펴보기','종이 영수증 대신 전자영수증 받자고 말하기','우리 반 녹색 실천 칭찬 스티커 만들기'],k:'우리 반에서 기후를 지키는 행동을 하면 어떤 보상을 주면 좋을까요?',wd:['탄소중립: 내보내는 온실가스와 흡수하는 양을 같게 해 0으로 만드는 것','인센티브: 어떤 행동을 하도록 북돋우려고 주는 혜택']},
+{w:'식물은 햇빛을 받아 양분을 만드는 광합성을 할 때 공기 중의 이산화탄소를 빨아들여요. 그래서 숲은 "탄소 저금통" 역할을 해요. 나무 종류와 나이에 따라 흡수하는 양이 다르기 때문에, 숲을 잘 가꾸는 것이 중요해요. 나무는 그늘을 만들어 더위도 막아 줘요.',d:['학교 화단·화분 식물 돌보기','식목일 나무 심기 행사에 참여하기','종이를 아껴 써서 베어지는 나무 줄이기'],k:'나무를 심는 것만으로 기후변화를 모두 막을 수 있을까요? 다른 방법도 함께 필요한 까닭은 무엇일까요?',wd:['흡수: 빨아들임','광합성: 식물이 햇빛, 물, 이산화탄소로 양분을 만드는 일','헥타르(ha): 넓이 단위. 1헥타르는 가로세로 100m인 땅']},
+{w:'음식 한 그릇이 우리 식탁에 오기까지 농사짓기, 가축 기르기, 실어 나르기, 요리하기에 많은 에너지가 들어요. 음식을 버리면 이 에너지가 모두 낭비돼요. 게다가 쓰레기장에서 음식이 썩으면 이산화탄소보다 열을 더 많이 붙잡는 메탄이 나와요.',d:['급식은 먹을 만큼만 받기','좋아하지 않는 반찬도 한 입 먹어 보기','집에서 남은 음식 다음 끼니에 먹기'],k:'우리 반 급식 잔반을 줄이려면 어떤 약속을 정하면 좋을까요?',wd:['메탄: 음식물이 썩거나 소가 소화할 때 나오는 온실가스','낭비: 쓸데없이 헛되이 씀']},
+{w:'집을 따뜻하게 하는 보일러는 대부분 가스를 태워서 열을 만들어요. 난방 온도를 높일수록 가스를 더 많이 태우고, 이산화탄소도 더 많이 나와요. 옷을 따뜻하게 입으면 난방을 조금만 해도 춥지 않게 지낼 수 있어요.',d:['집에서 내복·수면양말 입기','창문 틈 문풍지·뽁뽁이 붙이기 돕기','교실 문 닫고 난방하기'],k:'우리 교실의 겨울 온도는 몇 ℃일까요? 온도계로 재 볼까요?',wd:['적정 온도: 알맞은 온도','온맵시: 따뜻하게 옷을 입는 멋']},
+{w:'햇볕 아래에 서 있으면 햇빛이 몸에 바로 닿아 몸이 빨리 뜨거워져요. 그늘막은 햇빛을 가려서 몸에 닿는 열을 줄여 줘요. 특히 신호를 기다리는 횡단보도는 그늘이 없는 곳이 많아서 더위에 오래 노출되기 쉬워요. 그래서 사람이 많이 기다리는 곳에 그늘막을 세워요.',d:['더운 날 그늘에서 신호 기다리기','우리 동네 그늘막 위치 지도 만들기','그늘막이 더 필요한 곳을 시청에 제안해 보기'],k:'우리 학교 주변 횡단보도 중 그늘막이 꼭 필요한 곳은 어디일까요?',wd:['폭염: 매우 심한 더위','센서: 온도, 바람 등을 느끼는 장치','폭염저감시설: 더위를 줄이는 시설']},
+{w:'아스팔트 도로는 검은색이라 햇빛을 많이 흡수해서 아주 뜨거워져요. 물을 뿌리면 물이 도로의 열을 받아 증발하면서 열을 함께 가져가요. 그래서 도로가 식어요. 버려지는 지하수를 쓰니까 물도 아낄 수 있어요. 이렇게 도시가 주변보다 더 뜨거워지는 현상을 "열섬현상"이라고 해요.',d:['여름에 아스팔트보다 그늘·흙길로 걷기','학교 운동장에 물 뿌리기 실험 관찰하기','물을 아껴 쓰는 습관 기르기'],k:'왜 시골보다 도시가 더 더울까요? 도로와 건물의 색깔, 재료와 관련지어 생각해 봐요.',wd:['열섬현상: 도시의 기온이 주변보다 높아지는 현상','지하수: 땅속에 고여 있거나 흐르는 물','증발: 물이 수증기로 바뀌어 날아가는 것']},
+{w:'물이 증발하려면 열이 필요해요. 그래서 아주 작은 물방울이 공기 중에서 증발할 때 주변 공기의 열을 빼앗아 가고, 공기가 시원해져요. 물방울이 아주 작아서 옷이 젖지 않고 금방 증발해요. 땀이 마를 때 시원한 것과 같은 원리예요.',d:['손등에 물을 묻히고 부채질해서 시원해지는지 실험하기','더운 날 쿨링포그 근처에서 쉬기','습한 날 효과가 적은 까닭 토론하기'],k:'습도가 높으면 쿨링포그가 자동으로 멈추는 까닭은 무엇일까요?',wd:['안개: 아주 작은 물방울이 공기 중에 떠 있는 것','습도: 공기 중에 수증기가 얼마나 있는지 나타낸 것']},
+{w:'검은색은 햇빛을 많이 흡수하고, 흰색은 햇빛을 많이 반사해요. 여름에 검은 옷이 흰 옷보다 더 뜨거운 것과 같아요. 지붕을 흰색으로 칠하면 햇빛이 튕겨 나가 지붕과 건물 안이 덜 뜨거워져요. 그러면 에어컨을 덜 써도 되니 전기를 아끼고 온실가스도 줄일 수 있어요.',d:['여름에 밝은색 옷 입기','검은 종이와 흰 종이를 햇볕에 두고 온도 비교 실험하기','학교 옥상 색깔 살펴보기'],k:'쿨루프는 "더위에 대처하기"와 "온실가스 줄이기" 중 어디에 도움이 될까요? 두 가지 모두라면 그 까닭은?',wd:['반사: 빛이 물체에 부딪혀 튕겨 나가는 것','차열 페인트: 열을 막아 주는 페인트']},
+{w:'나무는 넓은 잎으로 햇빛을 가려 그늘을 만들어요. 또 뿌리로 빨아들인 물을 잎의 작은 구멍으로 내보내는데, 이 물이 증발하면서 주변 열을 가져가요. 그래서 숲은 자연이 만든 에어컨 같아요. 게다가 이산화탄소까지 흡수하니 일석이조예요.',d:['더운 날 공원·숲길로 산책하기','학교 나무 그늘 지도 만들기','나무를 함부로 꺾지 않기'],k:'나무 그늘 아래와 햇볕 아래의 온도를 재면 얼마나 차이가 날까요?',wd:['열대야: 밤에도 기온이 25℃ 이상인 더운 밤','증산작용: 식물이 잎을 통해 물을 수증기로 내보내는 일']},
+{w:'폭염은 몸의 온도를 높여 열사병 같은 온열질환을 일으킬 수 있어요. 특히 어르신, 어린이, 몸이 약한 사람은 더 위험해요. 집에 에어컨이 없거나 전기요금이 걱정되는 사람도 시원한 곳에서 쉴 수 있도록 나라와 지역에서 쉼터를 열어요. 이것은 기후변화에 "적응"하는 방법이에요.',d:['우리 동네 무더위쉼터 위치 알아 두기','혼자 사시는 할머니·할아버지께 쉼터 알려 드리기','더운 날 물 자주 마시기'],k:'무더위쉼터가 꼭 필요한 사람은 누구일까요? 그 까닭은?',wd:['온열질환: 더위 때문에 생기는 병(열사병, 열탈진 등)','적응: 바뀐 환경에 맞추어 피해를 줄이는 것']},
+{w:'같은 온도라도 습도가 높으면 땀이 잘 마르지 않아 더 덥게 느껴져요. 그래서 기상청은 습도까지 생각한 체감온도를 기준으로 특보를 내려요. 기후변화로 극한 더위가 잦아지자 더 높은 단계인 폭염중대경보도 만들었어요. 특보를 알면 미리 조심할 수 있어요.',d:['아침에 날씨 앱·뉴스로 특보 확인하기','폭염특보 때는 낮 시간 야외활동 줄이기','모자 쓰고 물병 챙기기'],k:'폭염특보가 내린 날, 우리 반 체육 시간은 어떻게 하면 좋을까요?',wd:['체감온도: 몸이 실제로 느끼는 온도','특보: 위험한 날씨를 특별히 알리는 예보']},
+{w:'기후변화는 여름을 더 덥게 할 뿐만 아니라, 겨울에 갑자기 매우 추운 날(한파)을 만들기도 해요. 추운 곳에 오래 있으면 몸의 온도가 떨어져 저체온증이 생길 수 있어요. 온열의자와 바람막이는 버스를 기다리는 동안 몸을 따뜻하게 지켜 줘요.',d:['한파 때 목도리·장갑 챙기기','우리 동네 정류장 한파 시설 조사하기','한파 시설 아껴 쓰고 깨끗이 쓰기'],k:'우리 학교 앞 버스정류장에 필요한 한파 대비 시설은 무엇일까요?',wd:['한파: 기온이 갑자기 크게 떨어지는 추위','저체온증: 몸의 온도가 너무 낮아져 생기는 위험한 상태']},
+{w:'온실가스는 한 나라에서만 나오는 것이 아니고, 공기는 나라의 경계 없이 지구 전체를 돌아요. 그래서 한 나라만 노력해서는 기후변화를 막을 수 없어요. 파리협정은 거의 모든 나라가 함께 목표를 세우고 서로 약속을 지키는지 확인하는 세계의 약속이에요.',d:['세계 여러 나라의 기후 노력 조사해 보기','우리 반 "기후 약속" 만들고 서명하기','지구의 날(4월 22일) 행사 참여하기'],k:'왜 기후변화는 세계 모든 나라가 함께 해결해야 할까요?',wd:['협정: 나라와 나라가 맺는 약속','산업화: 공장과 기계를 많이 쓰게 된 것(약 200년 전부터)']},
+{w:'온실가스를 하나도 안 내보내기는 어려워요. 그래서 내보내는 양은 최대한 줄이고, 숲을 가꾸거나 새로운 기술로 남은 만큼 흡수해서 더하고 빼면 0이 되게 하는 것이 탄소중립이에요. 큰 목표를 한 번에 이루기 어렵기 때문에 2030년이라는 중간 목표를 세웠어요.',d:['우리 가족 탄소 줄이기 목표 세우기','일주일 실천표 만들어 기록하기','학교 전기 사용량 알아보기'],k:'2050년에 여러분은 몇 살일까요? 그때 우리나라가 어떤 모습이면 좋겠나요?',wd:['순배출량: 내보낸 양에서 흡수한 양을 뺀 값','감축: 덜어서 줄임','시나리오: 앞으로 일어날 일을 미리 그려 본 계획']},
+{w:'공장, 사무실, 데이터센터 같은 큰 기업은 전기를 아주 많이 써요. 그 전기를 석탄 대신 햇빛, 바람으로 만들면 온실가스가 크게 줄어요. 세계의 큰 회사들이 함께 일하는 회사들에게도 재생에너지를 쓰라고 요구하면서 이 약속이 점점 퍼지고 있어요.',d:['우리가 쓰는 물건을 만든 기업이 RE100에 참여하는지 찾아보기','재생에너지 뜻을 가족에게 설명해 주기','친환경 제품 마크 찾아보기'],k:'기업이 돈이 더 들어도 재생에너지를 쓰려는 까닭은 무엇일까요?',wd:['재생에너지: 햇빛, 바람, 물처럼 다시 생기고 없어지지 않는 에너지','기업: 물건이나 서비스를 만들어 파는 회사']},
+{w:'석탄과 석유는 땅속에 오랫동안 묻혀 있던 화석연료예요. 태우면 이산화탄소가 많이 나오고, 언젠가는 바닥나요. 햇빛과 바람은 계속 다시 생기고 전기를 만들 때 온실가스가 거의 나오지 않아요. 다만 해가 없는 밤이나 바람이 없는 날에는 전기를 만들기 어려워 전기를 저장하는 기술도 함께 발전하고 있어요.',d:['학교·동네의 태양광 패널 찾아 사진 찍기','태양광 자동차 만들기 실험 해 보기','전기를 아껴 써서 필요한 발전량 줄이기'],k:'태양광 발전의 좋은 점과 어려운 점을 하나씩 말해 볼까요?',wd:['화석연료: 석탄, 석유, 천연가스처럼 옛날 생물이 땅속에서 변한 연료','발전량: 만들어 낸 전기의 양','TWh(테라와트시): 아주 많은 전기의 양을 나타내는 단위']},
+{w:'기업은 새로운 기술과 서비스를 만들 수 있는 힘이 있어요. 사람들이 불편해서 하지 못하던 친환경 행동을 편리하게 만들어 주면 더 많은 사람이 참여하게 돼요. 무인 반납기가 있으면 다회용컵을 돌려주기가 쉬워지는 것처럼요. 정부, 지자체, 기업이 함께 하면 더 효과가 커요.',d:['우리 동네 다회용컵 반납기 찾아보기','친환경 기술을 만든 기업 조사하기','내가 발명가라면 만들 친환경 발명품 그려 보기'],k:'여러분이 회사를 만든다면 어떤 기술로 기후변화에 대응하고 싶나요?',wd:['정보통신기술(ICT): 컴퓨터, 인터넷, 스마트폰 같은 기술','무인: 사람이 지키지 않아도 기계가 알아서 하는 것']},
+{w:'기후변화에 대응하려면 먼저 무엇이 얼마나 변했는지 정확히 알아야 해요. 기상청은 100년이 넘게 기온과 비의 양을 꾸준히 기록해 왔어요. 이렇게 쌓인 자료가 있어야 앞으로 어떤 일이 일어날지 예측하고 폭염특보, 대비 계획 같은 정책을 만들 수 있어요. 과학은 대응의 첫걸음이에요.',d:['일주일 동안 교실 온도·날씨 관찰 일기 쓰기','기후정보포털에서 우리 지역 기온 그래프 보기','부모님·조부모님께 어릴 적 여름·겨울 이야기 듣기'],k:'할머니, 할아버지가 어렸을 때와 지금의 여름은 어떻게 다를까요? 인터뷰해 봐요.',wd:['관측: 날씨, 기온 등을 살펴서 재고 기록하는 것','연평균 기온: 1년 동안 기온을 평균 낸 값','절기: 1년을 24로 나눈 계절의 마디(입춘, 대한 등)']},
+{w:'도시 밖의 산과 숲에서는 밤에 차갑고 맑은 공기가 만들어져요. 바람길숲은 이 공기가 하천과 길을 따라 도시 안으로 흘러 들어오도록 나무를 길게 이어 심은 숲이에요. 도시의 뜨거운 공기와 미세먼지를 밀어내는 데 도움을 줘요. 나라가 계획을 세우고 큰 예산을 들여야 할 수 있는 일이에요.',d:['우리 동네 하천·공원 길 따라 걸어 보기','학교에 나무를 더 심자고 제안하는 편지 쓰기','도시숲에서 시원한 정도 몸으로 느껴 보기'],k:'우리 학교 주변에 숲이 더 생긴다면 어떤 점이 좋아질까요?',wd:['바람길: 바람이 지나가는 길','예산: 나라나 기관이 쓸 돈을 미리 계획한 것','생활권: 사람들이 매일 생활하는 범위']}
+,{w:'전등은 전기를 빛으로 바꾸는데, 형광등은 전기의 많은 부분이 빛이 아닌 열로 새어 나가요. LED는 같은 전기로 더 많은 빛을 만들어서 전기를 덜 써요. 또 오래 쓰니까 버리는 전등도 줄어요. 학교와 가정의 전등은 하루에 오래 켜져 있어서 바꾸면 효과가 커요.',d:['교실 전등이 LED인지 살펴보기','빈 교실·화장실 불 끄기','햇빛이 밝을 때 창가 쪽 전등 끄기'],k:'우리 학교 전등을 모두 LED로 바꾸면 어떤 점이 좋아질까요?',wd:['LED(발광 다이오드): 전기가 흐르면 빛을 내는 작은 반도체','효율: 들인 에너지에 비해 얻는 결과의 비율','수명: 물건을 쓸 수 있는 기간']},
+{w:'투명 페트병은 색이 없고 깨끗해서, 모으면 좋은 품질의 실로 다시 만들 수 있어요. 그런데 색깔 있는 플라스틱이나 음식물과 섞이면 품질이 떨어져 좋은 제품으로 만들기 어려워요. 그래서 따로 모으는 것이 중요해요. 재활용을 잘하면 새 플라스틱을 만들 때 쓰는 석유와 에너지를 아낄 수 있어요.',d:['페트병 라벨 떼고 헹궈서 버리기','교실에 투명 페트병 전용 수거함 만들기','재활용 옷·가방 찾아보기'],k:'페트병이 옷이 되기까지 어떤 과정을 거칠까요? 순서대로 그려 볼까요?',wd:['분리배출: 쓰레기를 종류별로 나누어 버리는 것','재생원료: 버린 물건을 다시 쓸 수 있게 만든 재료','순환경제: 자원을 버리지 않고 계속 다시 쓰는 경제']},
+{w:'고기를 얻으려면 동물을 오랫동안 키워야 하고, 동물이 먹을 사료도 농사지어야 해요. 그 과정에서 땅, 물, 에너지가 많이 쓰여요. 특히 소는 소화할 때 이산화탄소보다 열을 훨씬 많이 붙잡는 메탄을 내뿜어요. 채소, 콩, 버섯 같은 음식은 만들 때 나오는 온실가스가 훨씬 적어요.',d:['일주일에 한 번 채소 위주 식단 먹어 보기','급식 채소 반찬 남기지 않기','가족과 콩·두부 요리 함께 만들기'],k:'고기를 좋아하는 친구도 함께 할 수 있는 실천은 무엇일까요?',wd:['축산업: 소, 돼지, 닭 등을 길러 고기·우유 등을 얻는 산업','IPCC: 기후변화를 과학적으로 연구하는 유엔 기구','메탄: 열을 많이 붙잡는 온실가스']},
+{w:'콘크리트 옥상은 햇빛을 그대로 받아 뜨겁게 달아올라요. 흙과 식물로 덮으면 식물이 그늘을 만들고, 잎과 흙의 물이 증발하면서 열을 빼앗아 가요. 흙층은 담요처럼 열이 드나드는 것을 막아 줘서 여름엔 시원하고 겨울엔 따뜻해요. 그래서 냉방과 난방 에너지가 줄고 온실가스도 줄어요. 도시 한가운데 새로운 녹지가 생기는 것도 큰 장점이에요.',d:['우리 학교·동네의 옥상정원 찾아보기','교실 화분 키우며 작은 정원 만들기','학교에 옥상정원을 만들자고 제안서 쓰기'],k:'옥상정원은 "폭염 대처"와 "탄소 줄이기" 중 어디에 도움이 될까요? 둘 다라면 그 까닭은?',wd:['옥상녹화: 건물 옥상에 흙을 깔고 식물을 심는 것','지표온도: 땅이나 바닥 표면의 온도','단열: 열이 드나들지 못하게 막는 것']},
+{w:'덩굴식물의 잎이 창문 앞을 덮으면 햇빛이 유리창을 통해 교실 안으로 바로 들어오는 것을 막아요. 그리고 잎에서 물이 증발하면서 주변 공기를 식혀 줘요. 커튼은 햇빛을 막지만 커튼 자체가 뜨거워지는데, 그린커튼은 식물이라 스스로 열을 식힌다는 점이 달라요. 에어컨을 덜 틀면 전기도 아낄 수 있어요.',d:['교실 창가에 나팔꽃 키우기 실험','그린커튼 있는 창과 없는 창 온도 재 보기','가꾼 여주·풍선초 관찰 일기 쓰기'],k:'그린커튼이 밤에는 효과가 거의 없는 까닭은 무엇일까요?',wd:['덩굴식물: 줄기가 다른 물체를 감고 올라가는 식물','벽면녹화: 건물 벽을 식물로 덮는 것']},
+{w:'수돗물은 강물을 깨끗하게 만들고 집까지 보내는 데 전기가 들어요. 빗물을 모아 쓰면 그만큼 수돗물과 에너지를 아낄 수 있어요. 또 기후변화로 비가 한꺼번에 많이 오거나 오랫동안 안 오는 일이 늘고 있는데, 빗물을 모아 두면 가뭄에 대비하고 폭우 때 빗물이 한꺼번에 흘러넘치는 것도 조금 줄일 수 있어요.',d:['학교 빗물저금통 찾아보기','양치할 때 컵 쓰기로 물 아끼기','화분에 모아 둔 물 주기'],k:'빗물을 바로 마시면 안 되는 까닭은 무엇일까요?',wd:['수자원: 사람이 쓸 수 있는 물','하수도: 쓰고 난 물이나 빗물이 흘러가는 길','가뭄: 오랫동안 비가 오지 않는 것']},
+{w:'도시는 땅이 아스팔트와 건물로 덮여 있어 빗물이 땅속으로 스며들지 못해요. 그래서 비가 한꺼번에 많이 오면 하수도가 넘쳐 길과 집이 물에 잠겨요. 빗물터널은 넘치는 빗물을 땅속 깊은 곳에 잠시 담아 두었다가 비가 그친 뒤 천천히 강으로 내보내요. 이미 바뀐 날씨에 맞추어 피해를 줄이는 "적응" 방법이에요.',d:['빗물받이에 쓰레기 버리지 않기','폭우 때 지하 공간·하천 근처 피하기','호우 특보 확인하기'],k:'도시에서 빗물이 땅속으로 잘 스며들게 하려면 어떻게 하면 좋을까요?',wd:['집중호우: 짧은 시간에 한 곳에 많은 비가 내리는 것','침수: 물에 잠기는 것','대심도: 땅속 아주 깊은 곳']},
+{w:'승용차 한 대에는 보통 한두 명이 타지만, 버스와 지하철은 한 번에 수십, 수백 명이 함께 타요. 그래서 한 사람이 이동할 때 나오는 온실가스가 훨씬 적어요. 지하철은 전기로 움직여 더 적어요. 기후동행카드처럼 대중교통을 싸고 편하게 만들면 많은 사람이 자동차 대신 대중교통을 타게 돼요. 이것이 지자체(시·도)의 노력이에요.',d:['가족과 1km 이동 온실가스 비교표 만들기','주말 나들이 대중교통으로 가 보기','우리 지역의 대중교통 정책 조사하기'],k:'승용차 210g과 지하철 1.5g, 몇 배 차이일까요? 계산해 봐요!',wd:['대중교통: 버스, 지하철처럼 여러 사람이 함께 타는 교통수단','지자체: 서울시, 경기도처럼 지역을 다스리는 기관','정책: 나라나 지역이 문제를 해결하려고 세운 계획']},
+{w:'학교 옥상은 넓고 햇빛을 잘 받아 태양광 패널을 달기 좋은 곳이에요. 태양광은 햇빛으로 전기를 만들어 석탄을 태우지 않아도 돼요. 학교가 스스로 전기를 만들면 전기요금을 아끼고 온실가스도 줄여요. 학생들은 우리 학교가 만든 전기를 직접 보며 기후변화 대응을 배울 수 있어요.',d:['우리 학교 옥상에 태양광이 있는지 알아보기','태양광 발전량 그래프 읽기','교장선생님께 태양광 설치 제안 편지 쓰기'],k:'태양광 패널은 학교의 어느 곳에 설치하면 좋을까요? 그 까닭은?',wd:['태양광 발전: 햇빛을 전기로 바꾸는 것','kW, MWh: 전기의 힘과 양을 나타내는 단위','보급률: 얼마나 널리 퍼졌는지 나타내는 비율']},
+{w:'휘발유차는 엔진에서 연료를 태워 움직여서 이산화탄소와 매연이 나와요. 전기차는 배터리의 전기로 모터를 돌려 달려서 달리는 동안 배기가스가 없어요. 다만 전기를 석탄으로 만들면 발전소에서 온실가스가 나오기 때문에, 재생에너지를 늘리는 것과 함께해야 효과가 더 커요.',d:['주변의 전기차 충전소 찾아보기','전기차 번호판 색깔 알아보기','가족 차를 바꿀 때 전기차 이야기해 보기'],k:'전기차가 더 깨끗해지려면 전기를 어떻게 만들어야 할까요?',wd:['배기가스: 자동차가 연료를 태우고 내보내는 기체','보조금: 나라나 지역에서 도와주는 돈','충전소: 전기차에 전기를 채우는 곳']},
+{w:'해조류도 육지의 나무처럼 광합성을 하면서 바닷물에 녹아 있는 이산화탄소를 흡수해요. 갯벌의 진흙은 탄소를 오랫동안 저장할 수 있어요. 그런데 바다 온도가 오르면 바위에 해조류가 사라지고 하얗게 변하는 갯녹음이 생겨요. 그래서 나라에서 바다숲을 만들고 갯벌을 지키고 있어요.',d:['바다식목일(5월 10일) 알아보기','바닷가에서 쓰레기 버리지 않기','미역·다시마 반찬 맛있게 먹어 보기'],k:'육지의 숲(그린카본)과 바다숲(블루카본)은 어떤 점이 같고 다를까요?',wd:['블루카본: 바다와 갯벌 생태계가 흡수하는 탄소','해조류: 미역, 다시마처럼 바다에 사는 조류','갯녹음: 해조류가 사라지고 바위가 하얗게 변하는 현상']}
+
+];
+const ZB={
+a:{t:'배경지식 읽기: 왜 이산화탄소를 줄여야 할까?',p:['지구는 공기층이 담요처럼 감싸고 있어요. 공기 속 이산화탄소, 메탄 같은 <b>온실가스</b>는 햇빛이 데운 지구의 열이 우주로 모두 빠져나가지 않게 붙잡아 줘요. 이것을 <b>온실효과</b>라고 해요. 온실효과가 없다면 지구는 너무 추워서 생물이 살기 어려웠을 거예요.','그런데 사람들이 공장을 돌리고, 자동차를 타고, 전기를 만들려고 석탄·석유를 많이 태우면서 온실가스가 너무 많아졌어요. 담요가 두꺼워지듯 지구가 점점 더워지는 것을 <b>지구온난화</b>, 그로 인해 날씨와 계절이 바뀌는 것을 <b>기후변화</b>라고 해요.','그래서 기후변화에 대응하는 첫 번째 방법은 대기 중으로 나가는 이산화탄소를 <b>줄이는 것(감축)</b>이에요. 에너지를 아끼고, 물건을 오래 쓰고, 숲을 가꾸는 일이 모두 여기에 들어가요. 아래 카드에서 구체적인 방법과 실제 숫자를 찾아보세요.']},
+b:{t:'배경지식 읽기: 이미 바뀐 날씨에 어떻게 대처할까?',p:['기후변화는 먼 미래의 일이 아니에요. 기상청 자료에 따르면 우리나라는 100여 년 동안 여름이 길어지고 겨울은 짧아졌어요. 폭염과 열대야가 잦아지고, 비가 한꺼번에 많이 내리는 일도 늘었어요. 갑작스러운 <b>한파</b>도 찾아와요.','온실가스를 줄이는 것과 함께, 이미 달라진 날씨에 맞춰 사람들이 안전하게 살 수 있도록 준비하는 것도 중요해요. 이것을 기후변화 <b>적응</b>이라고 해요. 그늘막, 무더위쉼터, 온열의자처럼 우리 생활 가까이에 있는 시설들이 바로 적응의 예예요.','특히 도시는 아스팔트와 건물이 열을 품어 주변보다 더 뜨거운 <b>열섬현상</b>이 생겨요. 그래서 물을 뿌리고, 지붕을 하얗게 칠하고, 나무를 심어 도시를 식히는 다양한 방법을 쓰고 있어요. 각 방법에 어떤 과학 원리가 숨어 있는지도 찾아보세요.']},
+c:{t:'배경지식 읽기: 기업과 나라는 무엇을 할까?',p:['개인의 실천은 정말 중요해요. 하지만 온실가스의 많은 양은 발전소, 공장, 큰 건물처럼 개인이 바꾸기 어려운 곳에서 나와요. 그래서 <b>기업</b>과 <b>나라</b>의 노력이 꼭 함께 필요해요.','기업은 재생에너지로 공장을 돌리고, 온실가스가 적게 나오는 물건과 새로운 기술을 개발해요. 나라는 법과 정책을 만들고, 목표를 정하고, 예산을 들여 도시숲이나 대중교통 같은 시설을 만들어요. 또 날씨와 기후를 꾸준히 관측해 계획을 세워요.','온실가스는 국경을 가리지 않기 때문에 세계 여러 나라가 함께 약속하기도 해요. 그 대표가 <b>파리협정</b>이에요. 아래 카드에서 기업, 나라, 세계가 어떤 노력을 하는지, 그리고 그 노력이 우리 생활과 어떻게 연결되는지 조사해 보세요.']}};
+
+const TR=[
+{s:'기상청 보도자료: "109년 동안 우리나라 연평균 기온이 1.6℃ 올랐다" (2021년)',a:0,e:'나라의 공식 기관이 실제 관측한 자료이고 날짜도 있어요.'},
+{s:'누가 썼는지 모르는 SNS 글: "그늘막이 오히려 더 덥게 만든대!"',a:1,e:'누가, 언제, 무엇을 근거로 했는지 알 수 없어요. 다른 자료로 꼭 확인해요.'},
+{s:'뉴스 기사: "행정안전부에 따르면 전국 무더위쉼터는 약 9만 3천 곳" (2026년 8월)',a:0,e:'누가 발표했는지와 날짜가 분명해요.'},
+{s:'날짜가 없는 개인 블로그의 표: "우리나라 그늘막 개수"',a:1,e:'언제 자료인지 몰라요. 숫자 자료는 날짜가 꼭 필요해요.'},
+{s:'환경단체 보고서: "다회용컵으로 바꾸면 탄소가 많이 줄어요"',a:1,e:'좋은 자료지만 단체의 주장이 담길 수 있어요. 정부·연구 자료와 함께 비교하면 완벽해요.'}];
+const K='climateDetective_v1';
+let S={nm:'',got:{},tries:{},pick:{},trust:{}};
+try{const r=localStorage.getItem(K);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const tag=t=>`<span class="tag"><svg viewBox="0 0 16 16">${IC[t]}</svg>${T[t]}</span>`;
+const stars=()=>Object.values(S.got).reduce((a,b)=>a+b,0);
+const rank=n=>n>=D.length?'기후 명탐정':n>=D.length*.66?'수석 기후 탐정':n>=D.length*.33?'기후 탐정':'견습 탐정';
+function stat(){const n=Object.keys(S.got).length;$('cnt').textContent=n;$('tot').textContent=D.length;$('stars').textContent=stars();$('rank').textContent=rank(n);$('who').textContent=S.nm||'새내기';
+$('mission').innerHTML=['a','b','c'].map(z=>{const all=D.filter(d=>d.z===z),g=all.filter(d=>S.got[D.indexOf(d)]).length;return `<button class="mbtn" style="background:${Z[z].c}" data-z="${z}">${Z[z].n}<small>단서 ${g} / ${all.length}${g===all.length?' · 배지 획득!':''}</small><span class="bar"><i style="width:${g/all.length*100}%"></i></span></button>`}).join('')+`<button class="mbtn" style="background:var(--d)" data-z="d">④ 탐정 본부<small>자료 찾는 비법 + 테스트 ${Object.keys(S.trust).length} / ${TR.length}</small><span class="bar"><i style="width:${Object.keys(S.trust).length/TR.length*100}%"></i></span></button>`;}
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));window.scrollTo({top:0})}
+let cur='a';
+function zone(z){if(z==='d'){show('howto');trust();return}cur=z;$('zt').textContent=Z[z].n;$('zt').style.color=Z[z].c;$('zd').textContent=Z[z].d;$('zb').style.setProperty('--zc',Z[z].c);$('zb').innerHTML=`<summary>${ZB[z].t}</summary>${ZB[z].p.map(x=>`<p>${x}</p>`).join('')}`;
+$('cards').innerHTML=D.map((d,i)=>[d,i]).filter(([d])=>d.z===z).map(([d,i])=>{const g=S.got[i];return `<button class="card${g?' got':''}" style="--zc:${Z[z].c}" data-i="${i}">${g?`<span class="stamp">${'★'.repeat(g)}</span>`:''}<span class="q">${g?'✓':'?'}</span>${tag(d.t)}<h3>${d.title}</h3><span style="color:var(--muted);font-size:15px">${g?'획득한 단서 · 다시 보기':'눌러서 단서 열기'}</span></button>`}).join('');show('zone')}
+function srcHtml(s,t){return `<div class="src"><b>출처${t?' 2':''}</b><dl><dt>누가</dt><dd>${s.who}</dd><dt>제목</dt><dd>${s.what}</dd><dt>언제</dt><dd>${s.when}</dd><dt>원문</dt><dd><a href="${s.url}" target="_blank" rel="noopener">원문 보기 (선생님과 함께)</a></dd></dl></div>`}
+function open(i){const d=D[i],g=S.got[i];const sh=$('sheet');sh.style.setProperty('--zc',Z[d.z].c);
+sh.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">${tag(d.t)}<button class="ghost" id="x">닫기</button></div>
+<h2>${d.title}</h2><div class="big">${d.big}</div><p style="margin:0">${d.body}</p>${d.warn?`<div class="warn">${d.warn}</div>`:''}${(()=>{const e=EX[i];return `<div class="more"><h3>왜 효과가 있을까요?</h3><p>${e.w}</p><h3>우리가 할 수 있는 일</h3><ul>${e.d.map(x=>`<li>${x}</li>`).join('')}</ul><h3>낱말 사전</h3><ul class="wd">${e.wd.map(x=>{const[a,...b]=x.split(': ');return `<li><b>${a}</b>: ${b.join(': ')}</li>`}).join('')}</ul><div class="think"><b>생각해 볼 질문</b> ${e.k}</div></div>`})()}${srcHtml(d.src)}${d.src2?srcHtml(d.src2,1):''}
+<div class="quiz"><h3>단서 확인 퀴즈: ${d.q}</h3><div class="opts">${d.o.map((o,k)=>`<button class="opt" data-k="${k}">${o}</button>`).join('')}</div><div class="fb" id="fb">${g?'이미 모은 단서예요! ★'.concat('★'.repeat(g-1)):''}</div></div>
+<div class="row"><button class="btn" id="x2">${g?'닫기':'나중에 풀기'}</button></div>`;
+$('modal').classList.add('on');$('x').onclick=$('x2').onclick=close;
+sh.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const k=+b.dataset.k;
+if(k===d.a){b.classList.add('right');if(!S.got[i]){const t=(S.tries[i]||0);S.got[i]=t===0?3:t===1?2:1;save();toast(`단서 획득! ★${S.got[i]}개`);stat();zone(cur);}
+$('fb').textContent='정답! 조사 노트에 저장했어요.';$('fb').style.color='var(--ok)';$('x2').textContent='다음 단서 찾기';sh.querySelectorAll('.opt').forEach(o=>o.disabled=true)}
+else{b.classList.remove('wrong');void b.offsetWidth;b.classList.add('wrong');S.tries[i]=(S.tries[i]||0)+1;save();$('fb').textContent='앗, 다시! 위의 자료에서 굵은 글씨를 찾아보세요.';$('fb').style.color='var(--coral)'}});
+$('x').focus()}
+function close(){$('modal').classList.remove('on')}
+function trust(){$('trust').innerHTML=TR.map((t,i)=>{const r=S.trust[i];return `<div class="box" style="margin-bottom:10px"><p style="margin:0 0 8px;font-weight:700">${i+1}. ${t.s}</p><div class="opts" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="opt${r!==undefined&&t.a===0?' right':''}" data-t="${i}" data-k="0">바로 써도 좋아요</button><button class="opt${r!==undefined&&t.a===1?' right':''}" data-t="${i}" data-k="1">한 번 더 확인해요</button></div><div class="fb" style="font-size:17px">${r!==undefined?t.e:''}</div></div>`}).join('');
+$('trust').querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const i=+b.dataset.t,k=+b.dataset.k,t=TR[i],fb=b.parentNode.nextElementSibling;
+if(k===t.a){if(S.trust[i]===undefined){S.trust[i]=1;save();toast('탐정 감각 +1');stat()}b.classList.add('right');fb.textContent='정답! '+t.e;fb.style.color='var(--ok)'}
+else{b.classList.remove('wrong');void b.offsetWidth;b.classList.add('wrong');fb.textContent='다시 생각해 봐요: 누가, 언제 만든 자료인가요?';fb.style.color='var(--coral)'}})}
+function notes(){const ids=Object.keys(S.got).map(Number).sort((a,b)=>a-b);
+$('notes').innerHTML=ids.length?ids.map(i=>{const d=D[i];return `<div class="ni" style="--zc:${Z[d.z].c}"><b>${d.title}</b> <small>${Z[d.z].n}</small><p>${d.note}</p><small>출처: ${d.src.who}, 「${d.src.what}」, ${d.src.when}</small><br><label><input type="checkbox" data-p="${i}" ${S.pick[i]?'checked':''}> 발표에 쓰기</label></div>`}).join(''):'<p>아직 모은 단서가 없어요. 지도에서 장소를 골라 보세요!</p>';
+$('notes').querySelectorAll('input').forEach(c=>c.onchange=()=>{c.checked?S.pick[c.dataset.p]=1:delete S.pick[c.dataset.p];save();speech()});speech()}
+function speech(){const p=Object.keys(S.pick).map(Number).filter(i=>S.got[i]);if(!p.length){$('speech').textContent='체크한 카드가 없어요. 위에서 발표하고 싶은 카드를 골라 보세요.';return}
+$('speech').innerHTML=`안녕하세요. ${S.nm?S.nm+' 탐정':'저'}이/가 조사한 기후변화 대응 방법은 <b>${p.map(i=>D[i].title).join(', ')}</b>입니다.<br>`+p.map(i=>`${D[i].src.who}의 ${D[i].src.when} 자료에 따르면, ${D[i].note}.`).join('<br>')+`<br>그래서 저는 앞으로 ________________을/를 실천하겠습니다. 들어 주셔서 감사합니다.`}
+function txt(){return Object.keys(S.got).map(Number).sort((a,b)=>a-b).map(i=>{const d=D[i];return `[${d.title}] ${d.note}\n출처: ${d.src.who}, 「${d.src.what}」, ${d.src.when}, ${d.src.url}`}).join('\n\n')}
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1600)}
+document.addEventListener('click',e=>{const z=e.target.closest('[data-z]');if(z){zone(z.dataset.z);return}const c=e.target.closest('.card');if(c){open(+c.dataset.i);return}const g=e.target.closest('[data-go]');if(g)show(g.dataset.go)});
+document.querySelectorAll('.spot').forEach(s=>s.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();zone(s.dataset.z)}}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){close();$('noteM').classList.remove('on')}});
+$('modal').addEventListener('click',e=>{if(e.target.id==='modal')close()});
+$('noteM').addEventListener('click',e=>{if(e.target.id==='noteM')$('noteM').classList.remove('on')});
+$('openNote').onclick=()=>{notes();$('noteM').classList.add('on')};
+$('closeNote').onclick=()=>$('noteM').classList.remove('on');
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText(txt()||'아직 모은 단서가 없어요.');toast('복사했어요!')}catch(e){toast('복사가 막혀 있어요. 직접 옮겨 적어요!')}};
+$('reset').onclick=()=>{if($('reset').dataset.sure){S={nm:S.nm,got:{},tries:{},pick:{},trust:{}};save();stat();notes();$('reset').textContent='처음부터 다시';delete $('reset').dataset.sure;toast('새 미션 시작!')}else{$('reset').dataset.sure=1;$('reset').textContent='정말요? 한 번 더 누르기'}};
+$('saveNm').onclick=()=>{S.nm=$('nm').value.trim().slice(0,10);save();stat();toast(S.nm?S.nm+' 탐정, 출동!':'이름을 지웠어요')};
+$('nm').value=S.nm;stat();
+}
+</script>
+</body>
+</html>
